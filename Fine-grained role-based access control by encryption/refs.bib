@@ -19,9 +19,10 @@
 }
 
 @misc{own-paper,
-  author={Andreas Severin Hauch Trøstrup, Lucas Frey Torres Hanson},
+  author={Andreas Severin Hauch Trøstrup and Lucas Frey Torres Hanson},
   url={https://github.com/lucasfth/reviewing-options-for-fine-grained-role-based-access-control-in-data-lakes},
   title={Reviewing options for fine-grained Role-Based Access Control in Data Lakes},
+  year={2025},
   abstractNote={Data lakes today have limitations in only allowing fine-grained access control on fully-managed cloud platforms like Snowflake or Databricks, where open data lakes with potentially many different query engines have to rely on limited catalogue-based access control.
   Theory and proposed solutions will be examined to see which options might be able to bridge this gap of ensuring fine-grained access control, and if encryption and role-based access control might be part of solving it.
   We propose a system for enforcing fine-grained role-based access control at the object store level as well as creating a wrapper around the object store to allow query engines to access the data without modifications.
@@ -33,7 +34,7 @@
 % START: Data lake benchmarking papers
 @misc{takahashi2025performanceanalysismdxii,
       title={Performance analysis of mdx II: A next-generation cloud platform for cross-disciplinary data science research}, 
-      author={Keichi Takahashi, Tomonori Hayami, Yu Mukaizono, Yuki Teramae, Susumu Date},
+      author={Keichi Takahashi and Tomonori Hayami and Yu Mukaizono and Yuki Teramae and Susumu Date},
       year={2025},
       eprint={2502.10820},
       archivePrefix={arXiv},
@@ -41,3 +42,202 @@
       url={https://arxiv.org/abs/2502.10820}, 
 }
 % END: Data lake benchmarking papers
+
+@misc{aws_signiture_version_4,
+  title={Authenticating Requests (AWS Signature Version 4)},
+  url={https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html}
+}
+
+@misc{bitwarden_passkeys,
+  url={https://bitwarden.com/resources/passkeys-are-phishing-resistant-mfa/},
+  abstractNote={When a passkey is used, authentication is tied to the legitimate website and relies on cryptographic proof, learn more about passkey security today!},
+  journal={Bitwarden},
+  language={en}
+}
+
+@misc{azure_envelope_encryption,
+  title={Azure data encryption at rest - Azure Security},
+  url={https://learn.microsoft.com/en-us/azure/security/fundamentals/encryption-atrest},
+  abstractNote={This article provides an overview of Azure data encryption at rest, the overall capabilities, and general considerations.},
+  author={msmbaldwin},
+  language={en-us}
+}
+
+@article{kumaretal2025membraneAC,
+  title={Membrane: A Cryptographic Access Control System for Data Lakes},
+  author={Sam Kumar and Samyukta Yagati and Conor Power and David E. Culler and Raluca Ada Popa},
+  journal={ArXiv},
+  year={2025},
+  volume={abs/2509.08740},
+  url={https://api.semanticscholar.org/CorpusID:281243750}
+}
+
+@misc{ducklake_cached,
+  title={ducklake_data_file},
+  url={https://ducklake.select/docs/stable/specification/tables/ducklake_data_file.html},
+  abstractNote={Data files contain the actual row data. Column name Column type   data_file_id BIGINT Primary key table_id BIGINT   begin_snapshot BIGINT   end_snapshot BIGINT   file_order BIGINT   path VARCHAR   path_is_relative BOOLEAN   file_format VARCHAR   record_count BIGINT   file_size_bytes BIGINT   footer_size BIGINT   row_id_start BIGINT   partition_id BIGINT   encryption_key VARCHAR   mapping_id BIGINT   partial_max BIGINT   data_file_id is the numeric identifier of the file. It is a primary key. data_file_id is incremented from next_file_id in the ducklake_snapshot table. table_id refers to a table_id from the ducklake_table table. begin_snapshot refers to a snapshot_id from the ducklake_snapshot…},
+  journal={DuckLake},
+  author={{DuckDB Foundation}},
+  language={en}
+}
+
+@misc{snowflake_external_tables,
+ url={https://docs.snowflake.com/en/user-guide/tables-external-intro?utm_source=DV-Blog%3Fsource&utm_cta=website-workload-ai-ml-timely-content-building-a-chatbot-app-with-rag-and-feature-store},
+ author={Snowflake},
+ language={en},
+ title={Introduction to external tables}
+}
+
+@misc{snowflake_external_tables_files,
+  title={External table files},
+  url={https://docs.snowflake.com/en/sql-reference/functions/external_table_files},
+  author={Snowflake},
+  language={en}
+}
+
+@misc{jit-provisioning,
+  url={https://deepstrike.io/blog/what-is-jit-provisioning},
+  abstractNote={Just-In-Time provisioning explained: how JIT works with SSO, why it matters for security and compliance, real-world examples, risks, and mitigations.},
+  journal={DeepStrike},
+  year={2025},
+  month=dec,
+  author={Deepstrike},
+  language={en-US}
+}
+
+@inproceedings{Databricks2021Lakehouse,
+  title={Lakehouse: A New Generation of Open Platforms that Unify Data Warehousing and Advanced Analytics},
+  author={Matei A. Zaharia and Ali Ghodsi and Reynold Xin and Michael Armbrust},
+  booktitle={Conference on Innovative Data Systems Research},
+  year={2021},
+  url={https://api.semanticscholar.org/CorpusID:229576171}
+}
+
+@misc{ibm-what-datalake,
+  url={https://www.ibm.com/think/topics/data-lake},
+  abstractNote={A data lake is a low-cost data storage environment designed to handle massive amounts of raw data in any format.},
+  year={2025},
+  month=jan,
+  language={en},
+  title={What is a data lake?},
+  author={Alexandra Jonker and Matthew Matthew Kosinski}
+}
+
+@misc{amazon-s3,
+  url={https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html},
+  author={AWS},
+  language={en}
+}
+
+@misc{apache-spark,
+  title={Apache Spark},
+  author={Apache Software Foundation},
+  howpublished={\url{https://spark.apache.org/}},
+  url={https://spark.apache.org/}
+}
+
+@misc{parquet-file-format,
+  author={Apache},
+  howpublished={\url{https://parquet.apache.org/docs/file-format/}},
+  url={https://parquet.apache.org/docs/file-format/},
+  title={Parquet File Format}
+}
+
+@misc{apache-thrift,
+  title={Apache Thrift},
+  author={Apache Software Foundation},
+  howpublished={\url{https://thrift.apache.org/}},
+  url={https://thrift.apache.org/}
+}
+
+@misc{ttl,
+  url={https://redis.io/docs/latest/commands/ttl/},
+  title={TTL},
+  abstractNote={Returns the expiration time in seconds of a key.},
+  journal={Docs},
+  author={Redis},
+  language={en}
+}
+
+@book{Barker_2016,
+  title={Recommendation for Key Management Part 1: General},
+  url={https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r4.pdf},
+  DOI={10.6028/NIST.SP.800-57pt1r4},
+  abstractNote={This Recommendation provides cryptographic key-management guidance. It consists of three parts. Part 1 provides general guidance and best practices for the management of cryptographic keying material, including definitions of the security services that may be provided when using cryptography and the algorithms and key types that may be employed, specifications of the protection that each type of key and other cryptographic information requires and methods for providing this protection, discussions about the functions involved in key management, and discussions about a variety of key-management issues to be addressed when using cryptography. Part 2 provides guidance on policy and security planning requirements for U.S. government agencies. Part 3 provides guidance when using the cryptographic features of current systems.},
+  number={NIST SP 800-57pt1r4},
+  institution={National Institute of Standards and Technology},
+  author={Barker, Elaine},
+  year={2016},
+  month=jan,
+  pages={NIST SP 800-57pt1r4},
+  language={en}
+}
+
+@misc{envelope-encryption,
+  url={https://docs.cloud.google.com/kms/docs/envelope-encryption},
+  journal={Google Cloud Documentation},
+  language={en},
+  year={2026},
+  month=may,
+  author={Google}
+}
+
+@article{Myagmar_Lee_Yurcik,
+  title={Threat Modeling as a Basis for Security Requirements},
+  abstractNote={We routinely hear vendors claim that their systems are “secure.” However, without knowing what assumptions are made by the vendor, it is hard to justify such a claim. Prior to claiming the security of a system, it is important to identify the threats to the system in question. Enumerating the threats to a system helps system architects develop realistic and meaningful security requirements.},
+  author={Myagmar, Suvda and Lee, Adam J and Yurcik, William},
+  language={en},
+  year = {2005},
+  month = {08},
+}
+
+@misc{parquet-modular-encryption-docs,
+  url={https://parquet.apache.org/docs/file-format/data-pages/encryption/},
+  abstractNote={Parquet files containing sensitive information can be protected by the modular encryption mechanism that encrypts and authenticates the file data and metadata - while allowing for a regular Parquet functionality (columnar projection, predicate pushdown, encoding and compression).
+  1 Problem Statement Existing data protection solutions (such as flat encryption of files, in-storage encryption, or use of an encrypting storage client) can be applied to Parquet files, but have various security or performance issues. An encryption mechanism, integrated in the Parquet format, allows for an optimal combination of data security, processing speed and encryption granularity.},
+  journal={Parquet},
+  language={en},
+  author={Apache},
+  year={2026}
+}
+
+@misc{lakekeeper-vended,
+  title={Lakekeeper Docs - Storage},
+  url={https://docs.lakekeeper.io/docs/0.5.x/storage/None},
+  abstractNote={Lakekeeper is a rust native Iceberg REST Catalog},
+  author={Lakekeeper},
+  language={en}
+}
+
+@misc{polaris-vended,
+  url={https://polaris.apache.org/releases/1.4.1/},
+  abstractNote={Apache Polaris is a catalog implementation for Apache Iceberg™ tables and is built on the open source Apache Iceberg™ REST protocol. With Polaris, you can provide centralized, secure read and write access to your Iceberg tables across different REST-compatible query engines. Key concepts🔗 This section introduces key concepts associated with using Apache Polaris. In the following diagram, a sample Apache Polaris structure with nested namespaces is shown for Catalog1. No tables or namespaces have been created yet for Catalog2 or Catalog3.},
+  journal={Apache Polaris},
+  language={en},
+  author={Apache}
+}
+
+@misc{azure-kv,
+  title={Azure Key Vault Overview - Azure Key Vault},
+  url={https://docs.azure.cn/en-us/key-vault/general/overview},
+  abstractNote={Azure Key Vault is a secure secrets store, providing management for secrets, keys, and certificates, all backed by Hardware Security Modules.},
+  author={Azure},
+  language={en-us},
+  year={2025}
+}
+
+@misc{aws-kms,
+  url={https://docs.aws.amazon.com/kms/latest/developerguide/overview.html},
+  author={AWS},
+  title={AWS Key Management Service}
+}
+
+@misc{parquet-encryption,
+  title={Parquet Modular Encryption},
+  url={https://parquet.apache.org/docs/file-format/data-pages/encryption/},
+  abstractNote={Parquet Modular Encryption Parquet files containing sensitive information can be protected by the modular encryption mechanism that encrypts and authenticates the file data and metadata - while allowing for a regular Parquet functionality (columnar projection, predicate pushdown, encoding and compression). 1 Problem Statement Existing data protection solutions (such as flat encryption of files, in-storage encryption, or use of an encrypting storage client) can be applied to Parquet files, but have various security or performance issues. An encryption mechanism, integrated in the Parquet format, allows for an optimal combination of data security, processing speed and encryption granularity.},
+  journal={Parquet},
+  language={en},
+  year={2026},
+  month=feb
+}

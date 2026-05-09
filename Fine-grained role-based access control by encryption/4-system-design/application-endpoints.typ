@@ -1,0 +1,20 @@
+#figure(
+  caption: [Application endpoints provided by OSWS for web frontend],
+  table(
+    columns: 3,
+    align: left + horizon,
+    [*Method*], [*Path*], [*Description*],
+    [Get],
+      [`/api/me`],
+      [Current user profile (triggers JIT provisioning)],
+    [Get],
+      [`/api/credentials`],
+      [List the user's S3 credentials],
+    [Post],
+      [`/api/credentials`],
+      [Create a new S3 credential (access key + secret key)],
+    [Delete],
+      [`/api/credentials/{id}`],
+      [Revoke a credential (soft delete)],
+  ),
+)<tab:applications-endpoints>

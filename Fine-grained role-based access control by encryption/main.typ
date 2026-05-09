@@ -2,6 +2,7 @@
 // #import "@preview/ieee-monolith:0.1.0": ieee
 #import "@preview/pintorita:0.1.4"
 #import "@preview/cetz:0.4.2"
+#import "@preview/codly:1.3.0"
 
 #set page(
   footer: context [
@@ -10,6 +11,7 @@
     Page #counter(page).display("1 of 1", both: true)
   ]
 )
+
 #show raw.where(lang: "pintora"): it => pintorita.render(it.text)
 #show link: underline
 #show: ieee.with(
@@ -41,18 +43,19 @@
     // Implications
     // Our findings show that the encryption to enforce access control might be a viable solution, as both modified and unmodified query engines are enforced to follow the column-level granularity using the role-based access control if they want to read the data, but will also have to be proven functional by a future MVP.
   ],
-  bibliography: bibliography("refs.bib"),
+  bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
   figure-supplement: "Figure"
 )
 
 #include "1-intro.typ"
-#include "2-background.typ"
-#include "3-system-design.typ"
-#include "4-methodology.typ"
-// #include "5-related-work.typ"
-#include "3-rbac-in-dl.typ"
-// #include "4-other-ideas.typ"
-// #include "6-discussion.typ"
+#include "2-related-work.typ"
+#include "3-background.typ"
+#include "4-system-design.typ"
+#include "5-methodology.typ"
+#include "6-results.typ"
+#include "7-discussion.typ"
 // #include "7-future-work.typ"
 // #include "8-conclusion.typ"
+#pagebreak()
 #include "9-appendix.typ"
+#pagebreak()

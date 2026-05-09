@@ -6,3 +6,5 @@
 #let maybeDelete(val) = highlight(fill: rgb("#FCE1E3"))[#val]
 // Update text
 #let update(val) = text(fill: gray)[#val]
+// Speculation text
+#let speculation(val) = highlight(fill: gray)[#val]

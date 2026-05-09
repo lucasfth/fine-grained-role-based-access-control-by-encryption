@@ -1,5 +1,19 @@
 = Appendix
 
+== Encrypted Parquet Footer
+<sec:encrypted-parquet>
+
+#figure(
+  placement: bottom,
+  scope: "parent",
+  caption: [
+    Illustration of the Parquet file structure using an Encrypted Footer. From @parquet-modular-encryption-docs.
+  ],
+  image("z-appendix/PME.png", width: 100%)
+)
+
+#pagebreak()
+
 == Hardware Specifications of the Hardware used for benchmarking
 
 #figure(
