@@ -38,3 +38,9 @@
 
   if label != none { [#content #label] } else { content }
 }
+
+#let prosecite(key) = {
+  // Indlejret show-rule fjerner kun initialer i dette specifikke kald
+  show regex("\p{Lu}\.\s+"): none
+  cite(key, form: "prose")
+}

@@ -1,21 +1,20 @@
 #import "cmds.typ": todo
-
 = Related Work
 
 == Reviewing options for fine-grained Role-Based Access Control in Data Lakes
 
-Before this thesis, we created the research paper titled "Reviewing options for fine-grained Role-Based Access Control in Data Lakes"@own-paper.
+This thesis is a continuation on the research paper titled "Reviewing options for fine-grained Role-Based Access Control in Data Lakes"@own-paper. 
 
-This was the foundational work we iterated further on to create OSWS.
-After starting to implement the OSWS, a few discoveries resulted in the OSWS not working as initially planned and described in the research paper.
+This was the foundational work to create OSWS.
+After starting to implement the OSWS, discoveries resulted in OSWS not working as initially planned and described in the research paper.
 The larger changes are shortly compared and described within @tab:original-idea-comparison.
 
 #include "2-related-work/planned-osws.typ"
 
-The biggest change given our initial idea is that OSWS cannot support "fully managed all-in-one cloud platforms", see more in @sec:all-in-one, such as Snowflake or Databricks Unity Catalog, as we would have to ask them to whitelist a URL for us.
-Given we have not been able to test it we are not certain that, given a whitelist, it would work.
-This is due to #todo[Ref about the sizing issue that ducklake faces], and thus it might be an issue in the platforms as well.
-Though this is an issue which could be removed in the future, but will need for OSWS to have another logical layer which bridges the two different design choices #todo[ref the range issue based on how encryption is handled].
+The biggest change given the initial idea is that OSWS cannot support "fully managed all-in-one cloud platforms", see more in @sec:all-in-one, such as Snowflake or Databricks Unity Catalog, as they would have to whitelist a URL on which OSWS runs.
+Given that it has not been able to be tested, it is not certain that, given a whitelist, it would work.
+This is due to #todo[Ref about the sizing issue that DuckLake faces], and thus, it might be an issue in the platforms as well.
+Though this is an issue which could be removed in the future, it will need for OSWS to have another logical layer which bridges the two different design choices #todo[ref the range issue based on how encryption is handled].
 
 == Membrane: A Cryptographic Access Control System for  Data Lakes 
 

@@ -3,8 +3,11 @@
 = Background
 
 Data lakes are not a new concept, but the term was first coined in 2011 by Dixon @ibm-what-datalake, and some of the terminology is a bit inconsistent.
-This section will describe the terminology used within this thesis to ensure consistent use.
+This section will describe the terminology used within this thesis to ensure consistency.
 A lot of the definitions will be taken directly from the previously written research paper, which will be referenced and quoted accordingly.
+
+== OSWS
+<sec:osws>
 
 == JIT Provisioning
 
@@ -12,21 +15,41 @@ Just-In-Time (JIT) Provisioning is an identity management process handling creat
 This is needed during the initial user creation, see @sec:oidc.
 
 == RBAC
+<sec:background-rbac>
+
+In @own-paper, Role-Based Access Control (RBAC) was defined as follows:
+
+#quote(block: true, attribution: [@own-paper])[
+  Role-based Access Control (RBAC) @ferraiolo1992rbac is an approach to access control based around assigning permissions to roles, and grouping users into these roles. Access control is then managed by controlling what roles are allowed to do what, instead of managing each user individually.
+The "Core RBAC" model, as defined by Ferraiolo et. al. 2001, @ferraiolo2001proposal, consists of five basic elements: _users_, _roles_, _permissions_, _operations_ and _objects_.
+A _user_ is some actor, typically a human user, but could also be an autonomous actor, who needs to be authorized for some set of actions.
+A user is assigned one or more _roles_.
+A role is simply some named collection of authorizations; for example, a job title.
+A role is assigned one or more _permissions_, which are what give authorization to perform an _operation_ on a secured _object_.
+[...]
+In addition, Core RBAC also describes _sessions_.
+A _session_ is a mapping of one user to a subset of the roles they are authorized for; i.e. a user "activates" one or more roles that have the necessary permissions, when they need to perform a specific operation on an object.
+This allows for finer control of roles that are active in a given context, to prevent unnecessary access levels. 
+Commonly, a hierarchy is introduced to allow for structuring roles which should inherit some base permissions; for example, a Doctor and Nurse role might inherit permissions from some base "Healthcare Worker" role.
+This is referred to as "Hierarchical RBAC" #cite(<ferraiolo2001proposal>).
+]
 
 == OIDC
+
+OpenID Connect (OIDC) is an identity authentication protocol based on the authorization OAuth 2.0 framework. @what-is-oidc It provides developers with a standardized, simple way to verify the identity of users trying to access web applications. It allows users to authenticate using their existing accounts previously registered with an OpenID Provider, such as Microsoft Entra ID @what-is-entra or PocketID @what-is-pocketid, which the web application can then contact to verify their identity. Thus, it eliminates the need to implement an authentication layer in the web application.
 
 == KMS/KV
 <sec:kv>
 
 Key Management Service (KMS) and Key Vault (KV) are both services used to manage keys.@aws-kms@azure-kv
 KMS is widely used within data storage, and is what AWS use to refer to their system, whereas Azure uses KV.
-This paper will use KV, as OSWS uses KV but could have used KMS, see more in #todo[ref sec].
+This paper will use the term KV, as OSWS uses Azure KV but could have used KMS, see more in #todo[ref sec and mention the `IKeyVaultProvider`].
 KV is a way to store cryptographic keys.
-When the cryptographic keys are within the KV, they can no longer be retrieved, and thus if data has to be encrypted/decrypted, it either has to be sent to the KV or envelope encryption can be used, so the KV is responsible for unwrapping the DEK, see more in~@sec:kek:dek. 
+When the cryptographic keys are within the KV, they can no longer be retrieved, and thus if data has to be encrypted/decrypted, it either has to be sent to the KV or envelope encryption can be used, so the KV is responsible for unwrapping the DEK, see more in~@sec:kek:dek.
 
 == Data Lake
 
-In the previous written research paper, data lakes were defined as follows: 
+In the previously written research paper, data lakes were defined as follows: 
 
 #quote(block: true, attribution: [@own-paper])[
 A "data lake" is a centralized repository of data, which could be structured, semi-structured or unstructured.@ibm-what-datalake
@@ -44,7 +67,7 @@ This has also been referred to as a _data lakehouse_ .@Databricks2021Lakehouse
 == Parquet
 <sec:parquet>
 
-In the previous written research paper, Parquet files were defined as follows:
+In the previously written research paper, Parquet files were defined as follows:
 
 #quote(block: true, attribution: [@own-paper])[
 Parquet @parquet-file-format is a columnar file format supported by many data processing systems.

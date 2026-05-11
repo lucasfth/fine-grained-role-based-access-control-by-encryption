@@ -1,6 +1,6 @@
 #import "../cmds.typ": todo
 #figure(
-  caption: [S3-Compatible endpoints provided by OSWS],
+  caption: [Admin role management endpoints provided by OSWS],
   table(
     columns: 3,
     align: left + horizon,
@@ -15,7 +15,7 @@
       [`/api/admin/columns/{columnId}/roles/{roleId}`],
       [#todo[todo]],
     [Post],
-      [`/api/admin/roles/{id}`],
+      [`/api/admin/roles`],
       [Create an RBAC role],
     [Delete],
       [`/api/admin/roles/{id}`],

@@ -54,8 +54,7 @@
 #include "5-methodology.typ"
 #include "6-results.typ"
 #include "7-discussion.typ"
-// #include "7-future-work.typ"
-// #include "8-conclusion.typ"
+#include "8-conclusion.typ"
 #pagebreak()
 #include "9-appendix.typ"
 #pagebreak()
