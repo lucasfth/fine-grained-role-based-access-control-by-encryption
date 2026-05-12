@@ -1,8 +1,10 @@
+
 #figure(
   placement: top,
   scope: "parent",
+  kind: "figure",
   supplement: "Figure",
-  caption: [Visual overview of how the OSWS project is structured],
+  caption: [Visual overview of how the OSWS project is structured together with the client entry-point into OSWS],
   (```pintora
 componentDiagram
 

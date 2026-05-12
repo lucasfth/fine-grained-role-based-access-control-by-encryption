@@ -1,3 +1,5 @@
+#counter(heading).update(0)
+#set heading(numbering: "1.a", supplement: [Appendix])
 = Appendix
 
 == Encrypted Parquet Footer
@@ -25,3 +27,4 @@
 <app:micro>
 
 #include "9-appendix/micro-text.typ"
+

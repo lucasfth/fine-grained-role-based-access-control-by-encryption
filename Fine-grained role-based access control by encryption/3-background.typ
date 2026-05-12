@@ -9,6 +9,11 @@ A lot of the definitions will be taken directly from the previously written rese
 == OSWS
 <sec:osws>
 
+Object Store Wrapper Service (OSWS) is the concept of a layer on top of an Object Store and which support S3-compatible API endpoints.
+It is meant to provide fine-grained role-based access control by encryption.
+This should be achieved through using PME, see~@sec:pme, and will only decrypt the columns which are authorized to the client requesting a given Parquet file.
+See more in~@sec:system-design.
+
 == JIT Provisioning
 
 Just-In-Time (JIT) Provisioning is an identity management process handling creating user accounts when they are needed.@jit-provisioning
@@ -43,7 +48,7 @@ OpenID Connect (OIDC) is an identity authentication protocol based on the author
 
 Key Management Service (KMS) and Key Vault (KV) are both services used to manage keys.@aws-kms@azure-kv
 KMS is widely used within data storage, and is what AWS use to refer to their system, whereas Azure uses KV.
-This paper will use the term KV, as OSWS uses Azure KV but could have used KMS, see more in #todo[ref sec and mention the `IKeyVaultProvider`].
+This paper will use the term KV, as OSWS has been set up against Azure KV but could have used KMS, see more in~@sec:osws-keymanager.
 KV is a way to store cryptographic keys.
 When the cryptographic keys are within the KV, they can no longer be retrieved, and thus if data has to be encrypted/decrypted, it either has to be sent to the KV or envelope encryption can be used, so the KV is responsible for unwrapping the DEK, see more in~@sec:kek:dek.
 
@@ -90,7 +95,7 @@ Then, to read a Parquet file, the reader de-serializes the Thrift structures to 
 Time-to-live (TTL) is a way to define the lifetime of some item within a dataset.
 When either the item's TTL expires or the dataset is full, the item closest to its TTL is removed.@ttl
 In OSWS, it is a way to define how long the lifetime of the encrypted Parquet files and the unwrapped DEKs, see~@sec:kek:dek, can live in storage and memory.
-When the TTL is reached, the data will be removed and has to be refetched from either S3 or the KV when needed, see #todo[ref some sec]
+When the TTL is reached, the data will be removed and has to be refetched from either S3 or the KV when needed.
 OSWS defines two different TTLs as a way to follow general security guidelines, which can be read about in "NIST Special Publication 800-57 Revision 5 Recommendation for Key Management"@Barker_2016, where OSWS uses a TTL of five minutes for DEKs authorized to admins, and the rest have a TTL of 15 minutes.
 
 == Envelope Encryption (KEK, DEK)
@@ -98,7 +103,7 @@ OSWS defines two different TTLs as a way to follow general security guidelines, 
 
 As KV, see~@sec:kv, does not support retrieving keys, OSWS uses envelope encryption.
 This means that during encryption of a column, cryptographic keys for each are generated, called a data-encryption-key (DEK), which is used to encrypt the columns.
-Then, for the single Parquet file, a single key-encryption-key is generated, resulting in less data compared to if each DEK had its own separate KEK.
+Then, for the single Parquet file, a single key-encryption-key is generated, resulting in less data compared to if each DEK had its own separate KEK within KV.
 This KEK then encrypts all the DEKs, also called wrapped DEKs, and gets stored in KV.
 The wrapped DEKs are then stored in the metadata for the Parquet file together with a KEK id.\
 When the columns are to be decrypted, the wrapped DEKs are sent to KV to get unwrapped, and the columns can be decrypted.@envelope-encryption
@@ -110,6 +115,7 @@ So the place where information from one side of the boundary is validated, and i
 This can be both if users should be able to access the data on the other side or if data should be able to be stored on the other side.@Myagmar_Lee_Yurcik
 
 == PME
+<sec:pme>
 
 Parquet Modular Encryption (PME) is a way to allow granular control of how the Parquet file data and metadata should be encrypted.
 Singular columns can be encrypted, and the footer as well.

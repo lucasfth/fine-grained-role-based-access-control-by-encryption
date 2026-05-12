@@ -3,7 +3,15 @@
 = Discussion
 <sec:discussion>
 
-During the final iteration of designing benchmarking and e2e tests, it became apparent that the system design of OSWS had design choices implemented, which, based on the research paper~@own-paper, made sense, but after modifying it to work with the various providers, did not make sense anymore and had unnecessary overhead or created other problems, and as such this section will address those issues, define what should have been done instead, and define which performance done in OSWS which can be removed.
+OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library, see @sec:encryption-flow.
+In short, during the encryption flow, the Parquet size is changed due to how Parquet Sharp operates, as well as added metadata.
+This eliminates query engines, which use the range modifier based on cached sizes and do not read from the modified metadata.
+This then eliminates DuckLake from using OSWS, as it caches the inserted ranges~@ducklake_cached.
+The same issue is prevalent for "fully managed all-in-one cloud platforms", due to the incompatible design choices made @snowflake_external_tables@snowflake_external_tables_files.
+
+OSWS was intended to support all 3rd party query engines and "fully managed all-in-one cloud platforms", but in its current state the platforms and some query engines are not supported.
+For the platforms, it has not been possible to test OSWS, as it would need the providers to whitelist a URL where OSWS would run.
+But most of these incompatibility issues are from the initial design choices made during the start, but first became apparent on the final iteration of designing benchmarking and e2e tests, which, based on the research paper~@own-paper, made sense, but after modifying it to work with the various providers, did not make sense anymore and had unnecessary overhead or created other problems, and as such this section will address those issues, define what should have been done instead, and define which performance done in OSWS which can be removed.
 
 == Metadata
 <sec:metadata>
@@ -64,8 +72,8 @@ By knowing the column chunk size and the column size, the OSWS could identify th
 When encrypting/decrypting the Parquet file, OSWS currently copies each row group sequentially.
 This should be an "embarrassingly parallelisable" operation, i.e. it could spawn threads to copy a cutout of the row groups to the new Parquet file so the row groups are copied in parallel.
 This should reduce copying overhead drastically, though in light of~@sec:encryption-decryption, it should be a write in place instead of a copy.
-#delete[But it would require a hand-written or at least modified low-level Parquet library, as this is not something ParquetSharp can do currently -- there is no API for inserting bytes at a specific offset.
-Offset handling would be the big challenge; how would the library handle where to write row chunks?] // Ikke allerede nævnt i encryption og decryption ovenfor?
+//#delete[But it would require a hand-written or at least modified low-level Parquet library, as this is not something ParquetSharp can do currently -- there is no API for inserting bytes at a specific offset.
+//Offset handling would be the big challenge; how would the library handle where to write row chunks?] // Ikke allerede nævnt i encryption og decryption ovenfor?
 
 == Compression
 <sec:compression>
@@ -99,12 +107,12 @@ A potential alternative would be to implement a fully fledged key vault inside O
 === DEK Cache
 <sec:correct-decisions:dek>
 
-The decrypted DEK cache is another one of these design choices which has to be carried over to a new version, given that a KV is used, as seen by #todo[ref to sec], that unwrapping DEKs carries a significant overhead.
+The decrypted DEK cache is another one of these design choices which has to be carried over to a new version, given that a KV is used, as seen by @sec:e2e-bench and @sec:microbench, that unwrapping DEKs carries a significant overhead.
 
 === RBAC Metadata Storage
 
-#todo[Trøstrup]
+The microbenchmarks in @sec:microbench also showed that the impact of authorizing users using the RBAC database was insignificant compared to the overhead of cryptographic operations and network transfer in general. This shows that a PostgreSQL database with the implemented design is a good option for RBAC Metadata Storage in the future.
 
 === Role Management
 
-#todo[Trøstrup]
+Role management (creating and assigning roles, granting permissions) using the implemented "query editor" provided an intuitive and familiar way of managing roles. Though this is just a wrapper over the admin API, and it could be implemented in many ways, this "query editor" is a valid option that could be used in the future.

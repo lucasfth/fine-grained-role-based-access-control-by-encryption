@@ -1,6 +1,7 @@
 #figure(
   placement: top,
   scope: "parent",
+  kind: "figure",
   supplement: "Figure",
   caption: [Entity Relationship Diagram showing the design of the database],
   (```pintora

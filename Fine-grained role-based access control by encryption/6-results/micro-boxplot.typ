@@ -175,6 +175,8 @@
 )
 
 #let microboxplot = subpar.grid(
+  kind: "figure",
+  supplement: "Figure",
   placement: top,
   scope: "parent", // either parent or column
   columns: (1fr, 1fr),
