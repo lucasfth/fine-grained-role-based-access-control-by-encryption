@@ -1,4 +1,4 @@
-#import "cmds.typ": update
+#import "cmds.typ": update, martinFeedback
 
 // #quote(block: true, attribution: [@bill-gates])[Power comes not from knowledge kept but from knowledge shared. A company’s values and reward system should reflect that idea.]
 
@@ -6,27 +6,31 @@
 
 // Situation (Context) - Describe the problem and motivate its importance
 Today, when you want to use a data lake, you have two options.
-Option 1: Select a "fully managed all-in-one cloud platform"#footnote[See~@sec:all-in-one] that integrates with data lakes and provides fine-grained access control.
-Option 2: Provide the external query engines the ability to interact with the data lake, but lose the ability for fine-grained access control.
-This limits who the data can be shared with, based on whether they should only be able to access part of the data, or if they have their own data analysis tool they wish to use.
+_Option 1:_ Select a "fully managed all-in-one cloud platform"#footnote[See~@sec:all-in-one] that integrates with data lakes and provides fine-grained access control.
+_Option 2:_ Provide the external query engines the ability to interact with the data lake, but lose the ability for fine-grained access control.
+#martinFeedback[So either you choose _Option 2_ and limit who the data can be shared with, based on whether they should only be able to access part of the data, or choose _Option 1_ and limit the query engines the data scientists want to use.]
+// This limits who the data can be shared with, based on whether they should only be able to access part of the data, or if they have their own data analysis tool they wish to use.
 
 // Complication (Gap) - Explain why the problem hasn’t been fully solved yet
 The Object Stores, such as Amazon S3, being the data lakes, do not understand a granularity finer than file level.
 This limitation prevents external access control services from governing access to a finer granularity, such as column-based.
 If, instead, the mechanism for access control was moved within the data lake itself, this could enable fine-grained access control.
-In the paper "Reviewing options for fine-grained Role-Based Access Control in Data Lakes"@own-paper, the solution called OSWS#footnote[See~@sec:osws] was proposed.
+In the paper "Reviewing options for fine-grained Role-Based Access Control in Data Lakes", by Trøstrup~and~Lucas@own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
 
 // Proposal (Innovation) - Propose a new solution that solves (part of) the problem
-The idea of OSWS is to encrypt the files within the data lake using Parquet Modular Encryption, which supports encrypting each column.
+The idea of OSWS is to encrypt the Parquet files within the data lake using Parquet Modular Encryption (PME), which supports encrypting each column.
 The keys will be stored in a key vault and in wrapped format within the Parquet files, and will be mapped to roles, to limit which roles have access to specific columns.
 OSWS will expose an S3-compatible API, which can then decrypt the data for the "fully managed all-in-one cloud platforms" and the external query engines when getting normal S3 requests.
 Thus, regardless of where to read the data from, it will have been ensured that they can only see what they are supposed to.
 
 // Contribution
-In this thesis, an MVP of OSWS will be created to prove that a system supporting external query engines, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow#footnote[See @sec:discussion].
+#martinFeedback[In this thesis, an MVP of OSWS will be created to prove that a system supporting third-party query engines, such as DuckDB, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow#footnote[See @sec:discussion].]
+// In this thesis, an MVP of OSWS will be created to prove that a system supporting external query engines, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow#footnote[See @sec:discussion].
 After developing the MVP and coupling a query engine to it, experiments will be conducted to evaluate the performance and  security of the system, compared to available solutions.
-Metrics include end-to-end read and write latency, as well as the cryptographic overhead introduced by the OSWS.
-Experiments will use data sizes representative of realistic workloads, tending towards the lower bounds.
+#martinFeedback[Metrics include end-to-end read and write latency, as well as the cryptographic overhead, in relation to the size of the Parquet file, introduced by the OSWS.]
+// Metrics include end-to-end read and write latency, as well as the cryptographic overhead introduced by the OSWS.
+#martinFeedback[Experiments will use data sizes representative of realistic data sizes.]
+// Experiments will use data sizes representative of realistic workloads, tending towards the lower bounds.
 
 == Research Questions
 

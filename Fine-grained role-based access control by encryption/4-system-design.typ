@@ -1,21 +1,15 @@
-#import "cmds.typ": todo
+#import "cmds.typ": todo, martinFeedback
 
 = System Design
 <sec:system-design>
 
-// OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library, see @sec:encryption-flow.
-// In short, during the encryption flow, the Parquet size is changed due to how Parquet Sharp operates, as well as added metadata.
-// This eliminates query engines, which use the range modifier based on cached sizes and do not read from the modified metadata.
-// This then eliminates DuckLake from using OSWS, as it caches the inserted ranges~@ducklake_cached.
-// The same issue is prevalent for "fully managed all-in-one cloud platforms", due to the incompatible design choices made @snowflake_external_tables@snowflake_external_tables_files.
-// TODO: atro Ovenstående kommer lidt for tidligt tror jeg, dette afsnit bør nok mere beskrive helt konkret hvordan det er bygget og ikke reflektere over hvilke konsekvenser det har
-OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library, see @sec:encryption-flow.
-But due to how some of these work on specific query engines can work with OSWS, see @sec:discussion for more info.
+OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library, see~@sec:encryption-flow.
+But due to how some of these work on specific query engines can work with OSWS, see~@sec:discussion for more info.
 // bedre? ↑ Trøstrup resten af infoen er rykket til diskussion
 Though some changes can be made to bridge these two different design choices, see more in~@sec:discussion.
 What the current OSWS solves is that query engines, which read metadata from object storage and do not use cached values, will have columnar access control enforced on the data they read.
 This ensures that, from the query engine's perspective, they are using S3 directly, but in reality use OSWS, and they can now read and write data to S3 as usual, but role-based access control is ensured on the column level.
-So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive a, depending on the setup of OSWS, all columns, but `birthday` will be either null values or an encrypted column.
+So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive, depending on the setup of OSWS, all columns, but `birthday` will be either null values or an encrypted column.
 
 Below, the design choices will be described in more depth, together with deeper technical information.
 
@@ -26,11 +20,12 @@ The purpose of OSWS is to provide column-level access controls to S3, whilst not
 This ensures that most S3-compatible query engines are able to use OSWS without modifications and that they will only be able to read what they are supposed to.
 
 The system is built on ASP.NET Core 10, and uses: PME, minimal API, PostgreSQL for RBAC, and was manually run and configured with Azure Key Vault for key management, Cloudflare R2 as Object Store (R2 is S3 compatible).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
+Minimal API being that there are no controllers, and that minimal dependencies exist to set it up, Anderson~and~Dykstra@minimal-api.
 
 == Layered Architecture
 
 #include "4-system-design/osws-architecture-overview.typ"
-
+#todo[Address comment: (6)   The headline says “Layered Architecture”, but you describe the “repo” in the text and in Figure 1. It would be better if you described the architecture. So instead of describing which source files exist in which directories, describe the main components of your system, what they do, and how they interact with each other. As Figure 1 include an architectural diagram, which normally consists of system components, system boundaries, and input and output. Try to find literature that describes the architecture of a system or database and modify your description to follow more common standards.]
 The repo is structured into six main .NET projects and one frontend project, written in React.
 You can see the structure visually in @fig:osws-architecture-overview together with the client entry-point to OSWS.
 
@@ -93,7 +88,8 @@ The database is mostly used for RBAC metadata; however, it also stores credentia
 
 == Authentication
 
-Due to the requests from the clients being signed, it is not possible to reuse the signature while encrypting the Parquet columns.
+#martinFeedback[Due to S3 requiring signage, the calls from the clients going to OSWS are signed as well, and as a result, OSWS cannot reuse the signature and encrypt the Parquet columns.]
+// Due to the requests from the clients being signed, it is not possible to reuse the signature while encrypting the Parquet columns.
 Internal authentications were therefore needed, and OSWS then has its own signature for S3.
 
 === AWS Signature V4 (S3 API)
@@ -109,8 +105,11 @@ This follows the AWS specification "Authenticating Requests (AWS Signature Versi
 === OIDC
 <sec:oidc>
 
-The React frontend, for handling RBAC, authenticates via. OIDC, #link("https://pocket-id.org/")[Pocket ID] has been chosen for OSWS.
-Pocket ID was chosen as it is simple to set up, being #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.
+#martinFeedback[The React frontend, for handling RBAC, uses OIDC for authentication flow.
+The OIDC provider chosen for OSWS is #link("https://pocket-id.org/")[Pocket ID], as it is simple to set up, is #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.]
+
+// The React frontend, for handling RBAC, authenticates via. OIDC, #link("https://pocket-id.org/")[Pocket ID] has been chosen for OSWS.
+// Pocket ID was chosen as it is simple to set up, being #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.
 
 The backend still supports other OIDC providers.
 To use other providers, `OSWS.WebApi/appsettings.json` needs to be updated to reflect the change, and the frontend `.env` has to point to the specified authority and client ID.
@@ -123,7 +122,8 @@ Subsequent logins will synchronize the OIDC provider's claims.
 To encrypt the Parquet columns, OSWS needs to use DEKs and KEKs to achieve envelope encryption@azure_envelope_encryption.
 This deviates from the original proposed solution in~@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
 By using envelope encryption, OSWS can cache the unwrapped DEKs with a specified TTL to allow quicker decryption.
-This solution results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.
+#martinFeedback[This results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.]
+// This solution results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.
 
 === Key Hierarchy
 

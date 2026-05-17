@@ -43,7 +43,8 @@
     // Implications
     // Our findings show that the encryption to enforce access control might be a viable solution, as both modified and unmodified query engines are enforced to follow the column-level granularity using the role-based access control if they want to read the data, but will also have to be proven functional by a future MVP.
   ],
-  bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
+  bibliography: bibliography("refs.bib"),
+  // bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
   figure-supplement: "Figure"
 )
 

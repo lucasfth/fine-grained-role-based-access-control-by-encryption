@@ -8,3 +8,5 @@
 #let update(val) = text(fill: gray)[#val]
 // Speculation text
 #let speculation(val) = highlight(fill: gray)[#val]
+// Text updated based on Martin's feedback, where the outcommented below is what it is supposed to replace.
+#let martinFeedback(val) = highlight(fill: yellow)[#val]

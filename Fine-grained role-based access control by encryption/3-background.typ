@@ -2,7 +2,7 @@
 
 = Background
 
-Data lakes are not a new concept, but the term was first coined in 2011 by Dixon @ibm-what-datalake, and some of the terminology is a bit inconsistent.
+Data lakes are not a new concept, but the term was first coined in 2011 by Dixon@ibm-what-datalake, and some of the terminology is a bit inconsistent.
 This section will describe the terminology used within this thesis to ensure consistency.
 A lot of the definitions will be taken directly from the previously written research paper, which will be referenced and quoted accordingly.
 
@@ -22,11 +22,11 @@ This is needed during the initial user creation, see @sec:oidc.
 == RBAC
 <sec:background-rbac>
 
-In @own-paper, Role-Based Access Control (RBAC) was defined as follows:
+In Trøstrup~and~Lucas@own-paper, Role-Based Access Control (RBAC) was defined as follows:
 
-#quote(block: true, attribution: [@own-paper])[
+#quote(block: true, attribution: [Trøstrup~and~Lucas@own-paper])[
   Role-based Access Control (RBAC) @ferraiolo1992rbac is an approach to access control based around assigning permissions to roles, and grouping users into these roles. Access control is then managed by controlling what roles are allowed to do what, instead of managing each user individually.
-The "Core RBAC" model, as defined by Ferraiolo et. al. 2001, @ferraiolo2001proposal, consists of five basic elements: _users_, _roles_, _permissions_, _operations_ and _objects_.
+The "Core RBAC" model, as defined by Ferraiolo et.~al.~2001, @ferraiolo2001proposal, consists of five basic elements: _users_, _roles_, _permissions_, _operations_ and _objects_.
 A _user_ is some actor, typically a human user, but could also be an autonomous actor, who needs to be authorized for some set of actions.
 A user is assigned one or more _roles_.
 A role is simply some named collection of authorizations; for example, a job title.
@@ -41,7 +41,7 @@ This is referred to as "Hierarchical RBAC" #cite(<ferraiolo2001proposal>).
 
 == OIDC
 
-OpenID Connect (OIDC) is an identity authentication protocol based on the authorization OAuth 2.0 framework. @what-is-oidc It provides developers with a standardized, simple way to verify the identity of users trying to access web applications. It allows users to authenticate using their existing accounts previously registered with an OpenID Provider, such as Microsoft Entra ID @what-is-entra or PocketID @what-is-pocketid, which the web application can then contact to verify their identity. Thus, it eliminates the need to implement an authentication layer in the web application.
+OpenID Connect (OIDC) is an identity authentication protocol based on the authorization OAuth 2.0 framework.@what-is-oidc It provides developers with a standardized, simple way to verify the identity of users trying to access web applications. It allows users to authenticate using their existing accounts previously registered with an OpenID Provider, such as Microsoft Entra ID@what-is-entra or PocketID@what-is-pocketid, which the web application can then contact to verify their identity. Thus, it eliminates the need to implement an authentication layer in the web application.
 
 == KMS/KV
 <sec:kv>
@@ -109,7 +109,7 @@ The wrapped DEKs are then stored in the metadata for the Parquet file together w
 When the columns are to be decrypted, the wrapped DEKs are sent to KV to get unwrapped, and the columns can be decrypted.@envelope-encryption
 
 == Trust Boundary
-
+#todo[Skal vi bare nakke? Vi referer til Trust Boundary senere i opgaven]
 A trust boundary is a boundary where the level of trust is checked.
 So the place where information from one side of the boundary is validated, and if it is valid, it will permeate to the other side, based on the restrictions.
 This can be both if users should be able to access the data on the other side or if data should be able to be stored on the other side.@Myagmar_Lee_Yurcik
