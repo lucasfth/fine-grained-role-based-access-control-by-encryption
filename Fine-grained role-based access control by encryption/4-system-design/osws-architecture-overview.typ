@@ -4,7 +4,7 @@
   scope: "parent",
   kind: "figure",
   supplement: "Figure",
-  caption: [Visual overview of how the OSWS project is structured together with the client entry-point into OSWS],
+  caption: [Architecture of OSWS showing components, external services, and communication paths],
   (```pintora
 componentDiagram
 

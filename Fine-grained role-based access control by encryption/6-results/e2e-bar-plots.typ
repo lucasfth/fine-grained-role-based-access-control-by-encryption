@@ -132,9 +132,11 @@
   placement: top,
   scope: "parent", // either parent or column
   columns: (1fr, 1fr),
-  getwarm(),
-  getcold(),
-  grid.cell(colspan: 2, put()),
+  getwarm(),<fig:median-get-latenct-warm-cache>,
+  getcold(),<fig:median-get-latency-cold-cache>,
+  grid.cell(colspan: 2, [
+    #put()<fig:median-put-latency>
+  ]),
   caption: [Plots showing median end-to-end latency measured during benchmarks. Grouped by file size. Note log scale on y-axis. Note that legend is shared.],
   label: <fig:e2eplot>,
 )

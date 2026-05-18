@@ -3,6 +3,8 @@
   supplement: "Listing",
   scope: "parent",
   placement: bottom,
+  {
+  set text(size: 7.1pt)
   block(
     height: 40%,
     align(left,
@@ -52,6 +54,6 @@
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ```
     )
-  ),
+  )},
   caption: [Textual representation for the results of running the micro benchmarks],
 )<lst:micro>

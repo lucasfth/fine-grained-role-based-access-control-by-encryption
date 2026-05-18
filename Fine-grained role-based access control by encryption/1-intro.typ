@@ -1,7 +1,5 @@
 #import "cmds.typ": update, martinFeedback
 
-// #quote(block: true, attribution: [@bill-gates])[Power comes not from knowledge kept but from knowledge shared. A company’s values and reward system should reflect that idea.]
-
 = Introduction
 
 // Situation (Context) - Describe the problem and motivate its importance
@@ -15,7 +13,7 @@ _Option 2:_ Provide the external query engines the ability to interact with the 
 The Object Stores, such as Amazon S3, being the data lakes, do not understand a granularity finer than file level.
 This limitation prevents external access control services from governing access to a finer granularity, such as column-based.
 If, instead, the mechanism for access control was moved within the data lake itself, this could enable fine-grained access control.
-In the paper "Reviewing options for fine-grained Role-Based Access Control in Data Lakes", by Trøstrup~and~Lucas@own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
+In #martinFeedback[our research project] "Reviewing options for fine-grained Role-Based Access Control in Data Lakes" @own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
 
 // Proposal (Innovation) - Propose a new solution that solves (part of) the problem
 The idea of OSWS is to encrypt the Parquet files within the data lake using Parquet Modular Encryption (PME), which supports encrypting each column.

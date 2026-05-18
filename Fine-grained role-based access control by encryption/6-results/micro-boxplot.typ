@@ -1,50 +1,52 @@
 // Auto-generated microbenchmark boxplots
 #import "@preview/lilaq:0.6.0" as lq
 #import "@preview/subpar:0.2.2"
+#let decryptionMsDivisor = 1000
 
 
 = Decryption
 
+
 #let decryption() = figure(
   lq.diagram(
     width: 100%, height: 7.5cm,
-    xlabel: "Corpus size", ylabel: "Duration (ms, log scale)",
+    xlabel: "Corpus size", ylabel: "Duration (s, log scale)",
     xaxis: (ticks: ((1, [tiny]), (2, [small]), (3, [medium]), (4, [large]), (5, [xlarge]))),
-    ylim: (9.632, 17879.728),
+    ylim: (0.01, 18000/decryptionMsDivisor),
     yscale: "log",
 
   lq.boxplot(
-    (median: 13.370, q1: 12.770, q3: 14.180,
-     whisker-low: 12.040, whisker-high: 14.610,
-     mean: 13.562, outliers: (17.050,)),
+    (median: 13.370/decryptionMsDivisor, q1: 12.770/decryptionMsDivisor, q3: 14.180/decryptionMsDivisor,
+     whisker-low: 12.040/decryptionMsDivisor, whisker-high: 14.610/decryptionMsDivisor,
+     mean: 13.562/decryptionMsDivisor, outliers: (17.050/decryptionMsDivisor,)),
     x: 1, mean: "+",
   ),
   lq.boxplot(
-    (median: 64.250, q1: 62.035, q3: 70.095,
-     whisker-low: 58.690, whisker-high: 75.030,
-     mean: 65.667, outliers: ()),
+    (median: 64.250/decryptionMsDivisor, q1: 62.035/decryptionMsDivisor, q3: 70.095/decryptionMsDivisor,
+     whisker-low: 58.690/decryptionMsDivisor, whisker-high: 75.030/decryptionMsDivisor,
+     mean: 65.667/decryptionMsDivisor, outliers: ()),
     x: 2, mean: "+",
   ),
   lq.boxplot(
-    (median: 1669.090, q1: 1652.250, q3: 1718.620,
-     whisker-low: 1581.340, whisker-high: 1796.400,
-     mean: 1681.803, outliers: ()),
+    (median: 1669.090/decryptionMsDivisor, q1: 1652.250/decryptionMsDivisor, q3: 1718.620/decryptionMsDivisor,
+     whisker-low: 1581.340/decryptionMsDivisor, whisker-high: 1796.400/decryptionMsDivisor,
+     mean: 1681.803/decryptionMsDivisor, outliers: ()),
     x: 3, mean: "+",
   ),
   lq.boxplot(
-    (median: 7425.450, q1: 7204.895, q3: 7644.540,
-     whisker-low: 7116.390, whisker-high: 8172.260,
-     mean: 7478.837, outliers: ()),
+    (median: 7425.450/decryptionMsDivisor, q1: 7204.895/decryptionMsDivisor, q3: 7644.540/decryptionMsDivisor,
+     whisker-low: 7116.390/decryptionMsDivisor, whisker-high: 8172.260/decryptionMsDivisor,
+     mean: 7478.837/decryptionMsDivisor, outliers: ()),
     x: 4, mean: "+",
   ),
   lq.boxplot(
-    (median: 14630.040, q1: 14445.005, q3: 14969.715,
-     whisker-low: 14123.850, whisker-high: 15547.590,
-     mean: 14744.849, outliers: ()),
+    (median: 14630.040/decryptionMsDivisor, q1: 14445.005/decryptionMsDivisor, q3: 14969.715/decryptionMsDivisor,
+     whisker-low: 14123.850/decryptionMsDivisor, whisker-high: 15547.590/decryptionMsDivisor,
+     mean: 14744.849/decryptionMsDivisor, outliers: ()),
     x: 5, mean: "+",
   ),
   ),
-  caption: [Decryption boxplot distribution per parameter (logarithmic y axis)],
+  caption: [Decryption boxplot distribution per parameter (logarithmic y axis)\ ‎ ], // have inserted an invisible character for better lineup
 )
 
 = Decryption // NOT USED
@@ -73,30 +75,31 @@
 )
 
 = KeyUnwrap
+#let unwrapMsDivisor = 1000
 
 #let unwrap() = figure(
   lq.diagram(
     width: 100%, height: 7.5cm,
-    xlabel: "DEK size (bits)", ylabel: "Duration (ms)",
+    xlabel: "DEK size (bits)", ylabel: "Duration (s)",
     xaxis: (ticks: ((1, [128]), (2, [192]), (3, [256]))),
-    ylim: (2764.055, 4205.425),
+    ylim: (0, 4205.425/unwrapMsDivisor),
 
   lq.boxplot(
-    (median: 3118.650, q1: 3059.845, q3: 3278.980,
-     whisker-low: 2863.460, whisker-high: 3438.820,
-     mean: 3153.800, outliers: ()),
+    (median: 3118.650/unwrapMsDivisor, q1: 3059.845/unwrapMsDivisor, q3: 3278.980/unwrapMsDivisor,
+     whisker-low: 2863.460/unwrapMsDivisor, whisker-high: 3438.820/unwrapMsDivisor,
+     mean: 3153.800/unwrapMsDivisor, outliers: ()),
     x: 1, mean: "+",
   ),
   lq.boxplot(
-    (median: 3222.340, q1: 3102.350, q3: 3261.225,
-     whisker-low: 2958.110, whisker-high: 3481.000,
-     mean: 3238.229, outliers: (3591.210, 3755.110)),
+    (median: 3222.340/unwrapMsDivisor, q1: 3102.350/unwrapMsDivisor, q3: 3261.225/unwrapMsDivisor,
+     whisker-low: 2958.110/unwrapMsDivisor, whisker-high: 3481.000/unwrapMsDivisor,
+     mean: 3238.229/unwrapMsDivisor, outliers: (3591.210/unwrapMsDivisor, 3755.110/unwrapMsDivisor)),
     x: 2, mean: "+",
   ),
   lq.boxplot(
-    (median: 3972.680, q1: 3851.605, q3: 3987.690,
-     whisker-low: 3666.950, whisker-high: 4106.020,
-     mean: 3919.253, outliers: ()),
+    (median: 3972.680/unwrapMsDivisor, q1: 3851.605/unwrapMsDivisor, q3: 3987.690/unwrapMsDivisor,
+     whisker-low: 3666.950/unwrapMsDivisor, whisker-high: 4106.020/unwrapMsDivisor,
+     mean: 3919.253/unwrapMsDivisor, outliers: ()),
     x: 3, mean: "+",
   ),
   ),
@@ -110,7 +113,7 @@
     width: 100%, height: 7.5cm,
     xlabel: "Hierarchy depth", ylabel: "Duration (ms, log scale)",
     xaxis: (ticks: ((1, [0]), (2, [4]), (3, [16]), (4, [64]))),
-    ylim: (2.768, 27.151),
+    ylim: (2.768, 30),
     yscale: "log",
 
   lq.boxplot(
@@ -149,7 +152,7 @@
     width: 100%, height: 7.5cm,
     xlabel: "Direct role count", ylabel: "Duration (ms, log scale)",
     xaxis: (ticks: ((1, [4]), (2, [64]), (3, [256]))),
-    ylim: (3.480, 32.361),
+    ylim: (2.768, 30),
     yscale: "log",
 
   lq.boxplot(

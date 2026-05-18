@@ -9,6 +9,7 @@ This section will cover both the setup of the benchmark and the setup of the e2e
 == Benchmarking
 
 All benchmarking of OSWS was run on a Digital Ocean VM with access to 8 cores and 16GB of DRAM, see~@sec:vm-spec, together with Digital Ocean's own Object Store (Spaces), which is S3-compatible.
+The version of OSWS used was #link("https://github.com/lucasfth/osws/releases/tag/V2026.0.0-alpha")[V2026.0.0 Alpha].
 
 === E2E Benchmarks
 
@@ -43,6 +44,8 @@ DigitalOcean @digitalocean was chosen as hosting for both the benchmark driver t
 
 === Micro Benchmarks
 
+#todo[mention the N times it was run]
+
 The e2e benchmarks tell the overall story of the performance of OSWS, but it is essential to identify which parts within OSWS contribute to latency.
 The following micro-benchmarks will be run:
 
@@ -75,13 +78,16 @@ As one of the goals of the OSWS was to enable third-party query engines to conne
 
 An end-to-end test will be created that asserts different query engines can connect and perform queries as normal, with OSWS providing column-level security based on the test user's roles.
 The end-to-end test suite will contain a seeding step that sets up the necessary users and roles. Python scripts will be used to orchestrate setting up roles and permissions, and asserting that the fetched data does not contain unauthorized data.
-The test will use the "Titanic" sample dataset #footnote(link("https://www.agentsfordata.com/app?sample-id=titanic&tab=local")) and permissions will be configured so two roles have limited access, but to different columns. One role will inherit both and have direct access to the rest of the columns, to thus have full access. This will then test the role hierarchy feature.
+#todo[passer]
+The test will use the "Titanic" sample dataset #footnote(link("https://www.agentsfordata.com/app?sample-id=titanic&tab=local")) and permissions will be configured so two roles have limited access, but to different columns.
+One role will inherit both and have direct access to all columns, thus having full access.
+This will then test the role hierarchy feature.
 Then, the following will be used to fetch the Parquet file through different users and assert that only the permitted columns are viewable:
 
-* Python script * A python script using an S3 client like `boto3` and a Parquet reader like `pyarrow` to fetch a file from OSWS.
+*Python script* A Python script using an S3 client like `boto3` and a Parquet reader like `pyarrow` to fetch a file from OSWS.
 
-* DuckDB * A DuckDB instance will query the parquet file through OSWS.
+*DuckDB* A DuckDB instance will query the parquet file through OSWS.
 
-* Apache Spark * An Apache Spark instance (through PySpark) will query the parquet file through OSWS.
+*Apache Spark* An Apache Spark instance (through PySpark) will query the parquet file through OSWS.
 
 Each of the different tools should assert that only the permitted data is viewable.

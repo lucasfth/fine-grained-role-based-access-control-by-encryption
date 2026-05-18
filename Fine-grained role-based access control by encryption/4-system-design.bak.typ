@@ -1,4 +1,4 @@
-#import "cmds.typ": todo, martinFeedback, delete
+#import "cmds.typ": todo, martinFeedback
 
 = System Design
 <sec:system-design>
@@ -19,50 +19,33 @@ OSWS is set up as a wrapper for S3 and thereby provides S3-compatible API endpoi
 The purpose of OSWS is to provide column-level access controls to S3, whilst not modifying the S3 API.
 This ensures that most S3-compatible query engines are able to use OSWS without modifications and that they will only be able to read what they are supposed to.
 
-The system is built on ASP.NET Core 10 using the minimal API pattern@minimal-api, which replaces traditional MVC with lightweight endpoint definitions.
-OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Ocean Spaces).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
+The system is built on ASP.NET Core 10, and uses: PME, minimal API, PostgreSQL for RBAC, and was manually run and configured with Azure Key Vault for key management, Cloudflare R2 as Object Store (R2 is S3 compatible).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
+Minimal API being that there are no controllers, and that minimal dependencies exist to set it up, Anderson~and~Dykstra@minimal-api.
 
 == Layered Architecture
 
-OSWS consists of the five main components, see~@fig:osws-architecture-overview.
-
 #include "4-system-design/osws-architecture-overview.typ"
+#todo[Address comment: (6)   The headline says “Layered Architecture”, but you describe the “repo” in the text and in Figure 1. It would be better if you described the architecture. So instead of describing which source files exist in which directories, describe the main components of your system, what they do, and how they interact with each other. As Figure 1 include an architectural diagram, which normally consists of system components, system boundaries, and input and output. Try to find literature that describes the architecture of a system or database and modify your description to follow more common standards.]
+The repo is structured into six main .NET projects and one frontend project, written in React.
+You can see the structure visually in @fig:osws-architecture-overview together with the client entry-point to OSWS.
 
-The data flow for a read request is as follows: the client sends an S3 `GetObject` request to the Encryption Gateway, which authenticates via SigV4.
-Then the gateway retrieves the encrypted Parquet file from the Object Store - checking the file cache first.
-The DEKs, which the client has access to, are sent to KV to get unwrapped if they were not found in the DEK cache.
-The "Parquet Solver" then decrypts the available columns and replaces any that cannot be decrypted.
-The new Parquet file is now returned to the client.
+=== `OSWS.WebAPI`
 
-For a write request, the client uploads a Parquet file via. `PutObject`.
-The "Parquet Solver" encrypts the columns with newly generated DEKs, wraps them via. KV, and stored the wrapped DEKs inside the Parquet files.
-Columns and permissions are persisted inside the RBAC database.
+WebAPI is the entry-point that, from the query engine's perspective, is S3.
+It is responsible for hosting the ASP.NET Core minimal API and registers all the services.
 
-#figure(
-  caption: [OSWS system components and their responsibilities],
-  table(
-    columns: (auto, 1fr),
-    align: left + horizon,
-    [*Component*], [*Responsibility*],
-    [Encryption Gateway],
-      [S3-compatible API host. Handles incoming `GetObject`/`PutObject` requests, enforces AWS Signature V4 authentication, and handles encryption, decryption, and column filtering.],
-    [Parquet Solver],
-      [Encrypts and decrypts Parquet files using PME with ParquetSharp.
-      Generates DEKs, wraps them via the Key Manager, and masks unauthorized columns.],
-    [Key Manager],
-      [Manages cryptographic keys through Azure KV (or an internal provider).
-      Wraps/unwraps DEKs using RSA-2048 KEKs stored in the vault.],
-    [RBAC Store],
-      [PostgreSQL database storing users, roles, role assignments, role inheritance, column permissions, and S3 credentials.
-      Evaluated per-request to determine authorized columns.],
-    [Admin Frontend],
-      [React web UI for managing roles, permissions, and users. Uses OIDC authentication and provides a SQL-like query editor for RBAC operations.],
-  ),
-)<tab:components>
+- Files within `Authentication` are responsible for the authentication schemes which are provided in incoming requests, including AWS Signature V4 (SigV4) for S3 API calls, and JWT Bearer validation for OIDC-authenticated calls.
+- Files within `Endpoints` are all the endpoints OSWS supports, both for S3-compatible API endpoints and the endpoints needed to use the frontend to ensure RBAC can be handled.
+- Files within `Extensions` ensures to load up all configurations for the setup of OSWS.
+  This includes OIDC, rate limiting, endpoints, and object store to use for this specific setup of OSWS.
+- `Interfaces` folder contains the S3-endpoints interfaces, so implementations can easily be changed out.
+- `Models` contain `OidcUserInfo`, which defines the record of the type `OidcUserInfo`.
+- `Services` defines the services used to handle and resolve users, Parquet uploads, which columns a user is authorized to see, transitive roles memberships, S3 object retrieval, and user info retrieval.
+- `Program` is the entry point to run OSWS itself and add all relevant services.
 
-=== Parquet Solver
+=== `OSWS.ParquetSolver`
 
-Parquet Solver handles the cryptographic operations for the Parquet files.
+ParquetSolver handles the cryptographic operations for the Parquet files.
 
 - `Interfaces` contain the interfaces `IDekCache`, `IParquetReader`, and `IParquetWriter`.
 - `KeyRetriever`: Implements `ParquetSharp.DecryptionKeyRetriever`, and handles retrieving the correct keys given the metadata within the Parquet files.
@@ -76,10 +59,10 @@ Parquet Solver handles the cryptographic operations for the Parquet files.
 Parquet Sharp was chosen as it supported PME, but it does not support partial decryption/reads of Parquet files, as it has to copy over all the columns to read.
 This results in the fact that, from OSWS to S3, ranged requests are not supported, but from a client's perspective, it is supported (a solution to this has been proposed in~@sec:encryption-decryption).
 
-=== Key Manager
+=== `OSWS.KeyManager`
 <sec:osws-keymanager>
 
-The Key Manager provides an abstraction over cryptographic key storage and the relational model.
+KeyManager provides an abstraction over cryptographic key storage and the relational model.
 
 - `AzureKeyVaultProvider`: Implements `IKeyVaultProvider`.
   It creates keys (which are defined in `OSWS.Common/Configuration/EncryptionSettings`) in Azure Key Vault, performs the wrap and unwrap of the DEKs server-side, using the algorithm defined within `OSWS.ParquetSolver/Helpers/Cryptography`.
@@ -231,6 +214,7 @@ There are two tiers to the caching system used within OSWS with the intention of
 Given the configuration of OSWS, the Parquet files fetched from the object store can be cached.
 It uses the LRU (Least Recently Used) policy to cache the encrypted Parquet files on the local file system.
 They are keyed with `SHA256(bucket::key)`, see `OSWS.ParquetSolver/Helpers/EncryptedFileCache.cs`.
+As the files are stored in their encrypted format, no new trust boundary is introduced.
 
 === DEK Cache
 
