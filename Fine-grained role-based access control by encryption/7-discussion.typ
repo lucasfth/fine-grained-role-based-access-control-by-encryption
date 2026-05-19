@@ -16,10 +16,10 @@ But most of these incompatibility issues are from the initial design choices mad
 == Metadata
 <sec:metadata>
 
-The idea for OSWS was to allow third-party query engines to decrypt Parquet files themselves locally, while decrypting within OSWS for "fully-managed cloud data lake platforms".
+The idea for OSWS was to allow third-party query engines to decrypt Parquet files themselves locally, while decrypting within OSWS for "fully managed all-in-one cloud platforms".
 This would be achieved by storing key IDs within the footer of the Parquet files, and the query engines could then, through an endpoint in OSWS, request the given key and then decrypt the column locally, and OSWS would do the logic itself.
 As soon as it was identified that this was not possible with KV to retrieve the keys from it, OSWS was changed to use envelope encryption and store the wrapped DEKs, and the KEK reference in the footer, due to it being partly meant for that purpose.
-#todo[Se om vi skal opdatere med grunden her. Men ville jo argumentere at det allerede står i background. Men omvendt kan man sige det var vel også kun "umuligt" da vi regnede med ikke at bruge envelope enc]
+#todo[Se om vi skal opdatere med grunden her. Men ville jo argumentere at det allerede står i background. Men omvendt kan man sige det var vel også kun "umuligt" da vi regnede med ikke at bruge envelope enc].
 When a client puts a file through OSWS, the Parquet file size is modified to contain related wrapped DEKs and KEK reference.
 This breaks many query engines, where they themselves store size metadata, and range requests are not fully functional.
 The solution to this would most likely be to have an internal SQL server running in OSWS.

@@ -34,19 +34,15 @@
   abstract: [
     // Motivation
     Data lakes supporting multiple query engines lack fine-grained access control; only "fully managed all-in-one cloud platforms" like Snowflake or Databricks offer it, within their own ecosystem.
-    // Data lakes today have limitations in only allowing fine-grained access control on fully-managed cloud platforms like Snowflake or Databricks, where open data lakes with potentially many different query engines have to rely on limited catalogue-based access control.
 
     // Results
-    We propose Object Store Wrapper Service (OSWS), a system enforcing column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are S3 compatible.
-    // Theory and proposed solutions will be examined to see which options might be able to bridge this gap of ensuring fine-grained access control, and if encryption and role-based access control might be part of solving it.
+    We propose Object Store Wrapper Service, a system enforcing column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are S3 compatible.
 
     // Contributions
-    Our evaluation shows that OSWS adds an acceptable overhead for tiny to small Parquet files, when using a DEK cache, with cold `GET` latency of #todo[XXX]s for a _5MB_ Parquet file, but with other design choices are more efficient solution is possible.
-    // We propose a system for enforcing fine-grained role-based access control at the object store level as well as creating a wrapper around the object store to allow query engines to access the data without modifications.
+    Our evaluation shows that OSWS adds an acceptable overhead for tiny to small Parquet files, when using a DEK cache, with warm _p95_ GET latency of _30ms_ for a _5MB_ Parquet file, but with other design choices are more efficient solution is possible.
 
     // Implications
     OSWS demonstrates that encryption-based access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata.
-    // Our findings show that the encryption to enforce access control might be a viable solution, as both modified and unmodified query engines are enforced to follow the column-level granularity using the role-based access control if they want to read the data, but will also have to be proven functional by a future MVP.
   ],
   bibliography: bibliography("refs.bib"),
   // bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
@@ -72,6 +68,7 @@
 ```) // HÆHÆ `figlet -f isometric2 OSWS`
 )
 
+#include "todo.typ"
 #include "1-intro.typ"
 #include "2-related-work.typ"
 #include "3-background.typ"

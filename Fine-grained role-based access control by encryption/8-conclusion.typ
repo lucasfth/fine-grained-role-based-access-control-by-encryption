@@ -8,14 +8,14 @@ OSWS demonstrates the possibility of adding fine-grained role-based access contr
 Query engines that do not cache Parquet sizing metadata, such as DuckDB, can use OSWS without modifications by pointing their S3 URL to OSWS.
 
 The benchmarks show the DEK cache is an essential part of OSWS.
-Without it, cold GET latency for a _5MB_ file exceeds #todo[_XXX seconds_].
-With the DEK cache enabled, the same operations take #todo[_XXX seconds_].
+Without it, cold GET latency for a _5MB_ file is _~3.7s_.
+With the DEK cache enabled, the same operations take _92ms_.
 Another dominant contributor to latency is the cryptographic operations, which a custom Parquet reader, implementing in-place decryption with AES-CTR, would reduce.
 
 The main limitation with current OSWS is that query engines and "fully managed all-in-one cloud platforms" (such as DuckLake and Snowflake) cache Parquet metadata, and as OSWS encrypts and writes metadata, the Parquet file sizes change, and their internal metadata are no longer correct.
 The other limitations are that for larger files, it adds a significant overhead, which would make it unusable in production.
 For files of Parquet files of sizes _500MB_ and _1GB_, the query engines timed out, due to too much latency.
-For Parquet files of sizes _125MB_, it still had a latency of #todo[_XXX seconds_] which would render OSWS too slow in production.
+For Parquet files of sizes _125MB_, it still had a warm _p95_ GET latency of _~1.8s_ and a cold of _~6s_, which would render OSWS too slow in production.
 
 == Future Work
 

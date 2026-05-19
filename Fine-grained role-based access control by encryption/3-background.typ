@@ -108,12 +108,6 @@ This KEK then encrypts all the DEKs, also called wrapped DEKs, and gets stored i
 The wrapped DEKs are then stored in the metadata for the Parquet file together with a KEK id.\
 When the columns are to be decrypted, the wrapped DEKs are sent to KV to get unwrapped, and the columns can be decrypted.@envelope-encryption
 
-== Trust Boundary
-#todo[Skal vi bare nakke? Vi referer til Trust Boundary senere i opgaven]
-A trust boundary is a boundary where the level of trust is checked.
-So the place where information from one side of the boundary is validated, and if it is valid, it will permeate to the other side, based on the restrictions.
-This can be both if users should be able to access the data on the other side or if data should be able to be stored on the other side.@Myagmar_Lee_Yurcik
-
 == PME
 <sec:pme>
 

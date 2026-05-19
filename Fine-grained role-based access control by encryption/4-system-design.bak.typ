@@ -214,7 +214,7 @@ There are two tiers to the caching system used within OSWS with the intention of
 Given the configuration of OSWS, the Parquet files fetched from the object store can be cached.
 It uses the LRU (Least Recently Used) policy to cache the encrypted Parquet files on the local file system.
 They are keyed with `SHA256(bucket::key)`, see `OSWS.ParquetSolver/Helpers/EncryptedFileCache.cs`.
-As the files are stored in their encrypted format, no new trust boundary is introduced.
+#delete[As the files are stored in their encrypted format, no new trust boundary is introduced.]
 
 === DEK Cache
 

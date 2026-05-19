@@ -46,7 +46,7 @@
     x: 5, mean: "+",
   ),
   ),
-  caption: [Decryption boxplot distribution per parameter (logarithmic y axis)\ ‎ ], // have inserted an invisible character for better lineup
+  caption: [Decryption boxplot distribution per parameter (logarithmic $y$ axis)\ ‎ ], // have inserted an invisible character for better lineup
 )
 
 = Decryption // NOT USED
@@ -80,7 +80,7 @@
 #let unwrap() = figure(
   lq.diagram(
     width: 100%, height: 7.5cm,
-    xlabel: "DEK size (bits)", ylabel: "Duration (s)",
+    xlabel: "DEK size (bits)", ylabel: "Duration (seconds)",
     xaxis: (ticks: ((1, [128]), (2, [192]), (3, [256]))),
     ylim: (0, 4205.425/unwrapMsDivisor),
 
@@ -103,7 +103,7 @@
     x: 3, mean: "+",
   ),
   ),
-  caption: [KeyUnwrap box-plot distribution per parameter set (tiny corpus only; linear y axis)],
+  caption: [KeyUnwrap box-plot distribution per parameter set (tiny corpus only; linear $y$ axis)],
 )
 
 = PermissionHierarchy
@@ -141,7 +141,7 @@
     x: 4, mean: "+",
   ),
   ),
-  caption: [PermissionHierarchy box-plot distribution per parameter set (logarithmic y axis)],
+  caption: [PermissionHierarchy box-plot distribution per parameter set (logarithmic $y$ axis)],
 )
 
 = PermissionService
@@ -174,7 +174,7 @@
     x: 3, mean: "+",
   ),
   ),
-  caption: [PermissionService box-plot distribution per parameter set (logarithmic y axis)],
+  caption: [PermissionService box-plot distribution per parameter set (logarithmic $y$ axis)],
 )
 
 #let microboxplot = subpar.grid(
@@ -187,6 +187,6 @@
   unwrap(),<fig:unwrap-boxplot>,
   permissionhier(),<fig:permission-hier-boxplot>,
   permissionser(),<fig:permission-service-boxplot>,
-  caption: [Box-plots for micro-benchmarks. Note that the y axes are not the same and some of the plots are logarithmic],
+  caption: [Box-plots for micro-benchmarks. Note that the $y$ axes are not the same and some of the plots are logarithmic],
   label: <fig:micro-boxplot>,
 )

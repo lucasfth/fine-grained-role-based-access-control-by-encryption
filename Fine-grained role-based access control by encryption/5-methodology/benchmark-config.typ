@@ -8,7 +8,7 @@
     align: left + horizon,
   [*Category*], [*Benchmark*], [*Configuration*], [*Measurements*],
   [*E2E*],
-    [S3 (R2)],
+    [S3 (Spaces)],
     [No. rows: 1,000, 10,000, 250,000, 1,000,000 (50 columns)],
     [Latency],
   [*E2E*],

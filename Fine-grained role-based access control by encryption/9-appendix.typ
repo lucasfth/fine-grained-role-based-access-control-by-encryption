@@ -28,3 +28,8 @@
 
 #include "9-appendix/micro-text.typ"
 
+#pagebreak()
+
+== E2E Latency Benchmark Results
+
+#include "9-appendix/e2e-text.typ"

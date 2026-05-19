@@ -4,16 +4,15 @@
 
 // Situation (Context) - Describe the problem and motivate its importance
 Today, when you want to use a data lake, you have two options.
-_Option 1:_ Select a "fully managed all-in-one cloud platform"#footnote[See~@sec:all-in-one] that integrates with data lakes and provides fine-grained access control.
+_Option 1:_ Select a "fully managed all-in-one cloud platform" that integrates with data lakes and provides fine-grained access control.
 _Option 2:_ Provide the external query engines the ability to interact with the data lake, but lose the ability for fine-grained access control.
-#martinFeedback[So either you choose _Option 2_ and limit who the data can be shared with, based on whether they should only be able to access part of the data, or choose _Option 1_ and limit the query engines the data scientists want to use.]
-// This limits who the data can be shared with, based on whether they should only be able to access part of the data, or if they have their own data analysis tool they wish to use.
+So either you choose _Option 2_ and limit who the data can be shared with, based on whether they should only be able to access part of the data, or choose _Option 1_ and limit the query engines the data scientists want to use.
 
 // Complication (Gap) - Explain why the problem hasn’t been fully solved yet
 The Object Stores, such as Amazon S3, being the data lakes, do not understand a granularity finer than file level.
 This limitation prevents external access control services from governing access to a finer granularity, such as column-based.
 If, instead, the mechanism for access control was moved within the data lake itself, this could enable fine-grained access control.
-In #martinFeedback[our research project] "Reviewing options for fine-grained Role-Based Access Control in Data Lakes" @own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
+In the research project "Reviewing options for fine-grained Role-Based Access Control in Data Lakes" @own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
 
 // Proposal (Innovation) - Propose a new solution that solves (part of) the problem
 The idea of OSWS is to encrypt the Parquet files within the data lake using Parquet Modular Encryption (PME), which supports encrypting each column.
@@ -22,13 +21,10 @@ OSWS will expose an S3-compatible API, which can then decrypt the data for the "
 Thus, regardless of where to read the data from, it will have been ensured that they can only see what they are supposed to.
 
 // Contribution
-#martinFeedback[In this thesis, an MVP of OSWS will be created to prove that a system supporting third-party query engines, such as DuckDB, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow#footnote[See @sec:discussion].]
-// In this thesis, an MVP of OSWS will be created to prove that a system supporting external query engines, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow#footnote[See @sec:discussion].
+In this thesis, an MVP of OSWS will be created to prove that a system supporting third-party query engines, such as DuckDB, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow.
 After developing the MVP and coupling a query engine to it, experiments will be conducted to evaluate the performance and  security of the system, compared to available solutions.
-#martinFeedback[Metrics include end-to-end read and write latency, as well as the cryptographic overhead, in relation to the size of the Parquet file, introduced by the OSWS.]
-// Metrics include end-to-end read and write latency, as well as the cryptographic overhead introduced by the OSWS.
-#martinFeedback[Experiments will use data sizes representative of realistic data sizes.]
-// Experiments will use data sizes representative of realistic workloads, tending towards the lower bounds.
+Metrics include end-to-end read and write latency, as well as the cryptographic overhead, in relation to the size of the Parquet file, introduced by the OSWS.
+Experiments will use data sizes representative of realistic data sizes.
 
 == Research Questions
 

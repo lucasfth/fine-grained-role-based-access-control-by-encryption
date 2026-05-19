@@ -1,4 +1,4 @@
-#import "cmds.typ": todo, martinFeedback, delete
+#import "cmds.typ": todo, martinFeedback, delete, speculation
 
 = System Design
 <sec:system-design>
@@ -22,22 +22,6 @@ This ensures that most S3-compatible query engines are able to use OSWS without 
 The system is built on ASP.NET Core 10 using the minimal API pattern@minimal-api, which replaces traditional MVC with lightweight endpoint definitions.
 OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Ocean Spaces).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
 
-== Layered Architecture
-
-OSWS consists of the five main components, see~@fig:osws-architecture-overview.
-
-#include "4-system-design/osws-architecture-overview.typ"
-
-The data flow for a read request is as follows: the client sends an S3 `GetObject` request to the Encryption Gateway, which authenticates via SigV4.
-Then the gateway retrieves the encrypted Parquet file from the Object Store - checking the file cache first.
-The DEKs, which the client has access to, are sent to KV to get unwrapped if they were not found in the DEK cache.
-The "Parquet Solver" then decrypts the available columns and replaces any that cannot be decrypted.
-The new Parquet file is now returned to the client.
-
-For a write request, the client uploads a Parquet file via. `PutObject`.
-The "Parquet Solver" encrypts the columns with newly generated DEKs, wraps them via. KV, and stored the wrapped DEKs inside the Parquet files.
-Columns and permissions are persisted inside the RBAC database.
-
 #figure(
   caption: [OSWS system components and their responsibilities],
   table(
@@ -60,130 +44,38 @@ Columns and permissions are persisted inside the RBAC database.
   ),
 )<tab:components>
 
-=== Parquet Solver
+OSWS consists of the five main components, see~@fig:osws-architecture-overview or~@tab:components.
 
-Parquet Solver handles the cryptographic operations for the Parquet files.
+The *admin frontend* is for RBAC, thus managing roles, permissions, and users within the OSWS system, more specifically within the *RBAC store*, which is the database for storing these relations.
+Here, it can be defined what columns a user can access later on and, by extension, which columns will be masked.
 
-- `Interfaces` contain the interfaces `IDekCache`, `IParquetReader`, and `IParquetWriter`.
-- `KeyRetriever`: Implements `ParquetSharp.DecryptionKeyRetriever`, and handles retrieving the correct keys given the metadata within the Parquet files.
-- `ParquetWriter`: Implements `Interfaces/IParquetWriter` and takes a plain-text Parquet file and encrypts the columns if needed.
-  This is done by generating an AES key of a size defined either within `OSWS.Common/Configuration/EncryptionSettings` or in `appsettings.json`.
-  The DEK is then wrapped in a KEK (see @sec:osws-keymanager).´
-  The wrapped DEKs are serialized, and the Parquet file is written with `ParquetSharp` using the serialized DEKs in the footer, and it is then sent to S3.
-- `ParquetReader`: Implements `Interfaces/IParquetReader`.
-  It takes the encrypted Parquet file and copies it to a decrypted version, decrypting using the metadata stored in the file. Forbidden columns are masked with dummy data.
+The *encryption gateway* is the entry point for retrieving and putting files into the actual S3.
+It is responsible for delegating work to the other components, so encrypting and decrypting files, partially, is possible.
+Whenever it receives a GET request, it will first get the file from S3 and see which columns the client is able to read, by using the *RBAC store*.
+Then it will use the *Parquet solver*, which in turn will handle trying to identify which DEKs are in the Parquet file.
+It can then go through the *key manager* to get the unwrapped DEKs based on permission level; it will check locally first, and if not stored, go to KV to get them unwrapped there, and store them for later use.
+After the key manager returns the unwrapped DEKs, the Parquet solver can decrypt the columns and mask out the ones it cannot decrypt.
+Now the encryption gateway can return the Parquet file, showing only the information that the client has access to.
 
-Parquet Sharp was chosen as it supported PME, but it does not support partial decryption/reads of Parquet files, as it has to copy over all the columns to read.
-This results in the fact that, from OSWS to S3, ranged requests are not supported, but from a client's perspective, it is supported (a solution to this has been proposed in~@sec:encryption-decryption).
+When the encryption gateway gets a PUT request, it first gets the user's base role.
+#speculation[This is mistakenly done by taking their first role, but should have been tied to their base role instead.
+] // DIS OKAY?
+Then the Parquet solver is given the file and role, so it can generate new DEKs per column and a KEK for the Parquet file.
+The RBAC store is updated with the new columns and key references, and the file is encrypted afterwards.
+It also handles wrapping the keys initially so the wrapped DEKs can be put into the metadata, and KEK is given to the key manager to insert into KV.
 
-=== Key Manager
-<sec:osws-keymanager>
+This allows OSWS to ensure fine-grained role-based access control in data lakes, but of course, there are more in-depth design choices that have been made to make this work, both for better and worse.
 
-The Key Manager provides an abstraction over cryptographic key storage and the relational model.
+== Design Choices
 
-- `AzureKeyVaultProvider`: Implements `IKeyVaultProvider`.
-  It creates keys (which are defined in `OSWS.Common/Configuration/EncryptionSettings`) in Azure Key Vault, performs the wrap and unwrap of the DEKs server-side, using the algorithm defined within `OSWS.ParquetSolver/Helpers/Cryptography`.
-- `InternalKeyVaultProvider`: Implements `IKeyVaultProvider`.
-  It works the same as `AzureKeyVaultProvider` but runs on OSWS itself.\
-  As long as `IKeyVaultProvider` is implemented together with a key vault provider, which means it supports the following functions: encrypt, decrypt, get key info, and list keys, most providers should be able to be used.
-- `OswsContext`: Implements `DbContext`.
-  Defines the relational schema over PostgreSQL, including users, roles, role assignments, role inheritance, permissions, columns, keys, external identities, and S3 credentials.
+#include "4-system-design/osws-architecture-overview.typ"
 
-=== Shared Libraries
-
-- `OSWS.Models` defines all the DTOs and entities used within the solution.
-- `OSWS.Common` contain classes containing settings for the project, including. `EncryptionSettings`, `CacheSettings`, `S3Settings`, `KeyVaultSettings`, and `RateLimitSettings`.
-  They are bound to `appsettings.json` at startup, and they also include validation logic for the configuration.
-- `OSWS.Library` has utility helpers for AWS credential normalization, S3 metadata translation, HTTP range request parsing, parameter validation, and XML extensions.
-
-== Database Design
+=== Database Design
 
 #include "4-system-design/er-diagram.typ"
 
 An Entity Relationship describing the database design can be seen in @er-diagram.
 The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, see @sec:sigv4, and external identity information from the OpenID Provider(s).
-
-== Authentication
-
-#martinFeedback[Due to S3 requiring signage, the calls from the clients going to OSWS are signed as well, and as a result, OSWS cannot reuse the signature and encrypt the Parquet columns.]
-// Due to the requests from the clients being signed, it is not possible to reuse the signature while encrypting the Parquet columns.
-Internal authentications were therefore needed, and OSWS then has its own signature for S3.
-
-=== AWS Signature V4 (S3 API)
-<sec:sigv4>
-Because OSWS had to use an S3-compatible API, it also had to use the same validation as S3.
-A custom `SigV4AuthenticationHandler` has been created to parse the authorization header and extract the `AccessKeyId`.
-The keys corresponding to the `S3Credential` record are then looked up in the internal PostgreSQL, see the `S3Credential` table in @er-diagram.
-The signature is verified using the stored secret key.
-On success, a `ClaimsPrincipal` is created carrying the user's database ID, name, email, and default role.
-
-This follows the AWS specification "Authenticating Requests (AWS Signature Version 4)"@aws_signiture_version_4.
-
-=== OIDC
-<sec:oidc>
-
-#martinFeedback[The React frontend, for handling RBAC, uses OIDC for authentication flow.
-The OIDC provider chosen for OSWS is #link("https://pocket-id.org/")[Pocket ID], as it is simple to set up, is #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.]
-
-// The React frontend, for handling RBAC, authenticates via. OIDC, #link("https://pocket-id.org/")[Pocket ID] has been chosen for OSWS.
-// Pocket ID was chosen as it is simple to set up, being #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.
-
-The backend still supports other OIDC providers.
-To use other providers, `OSWS.WebApi/appsettings.json` needs to be updated to reflect the change, and the frontend `.env` has to point to the specified authority and client ID.
-
-On the first login, the `api/me` endpoint triggers JIT provisioning, and a new `User` record and `ExternalIdentity` record are created in the database.
-Subsequent logins will synchronize the OIDC provider's claims.
-
-== Envelope Encryption
-
-To encrypt the Parquet columns, OSWS needs to use DEKs and KEKs to achieve envelope encryption@azure_envelope_encryption.
-This deviates from the original proposed solution in~@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
-By using envelope encryption, OSWS can cache the unwrapped DEKs with a specified TTL to allow quicker decryption.
-#martinFeedback[This results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.]
-// This solution results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.
-
-=== Key Hierarchy
-
-The KEK sizes are specified within the KV that the admin chooses.
-Due to having student credits available in Azure, which was only available for a low-cost KV, RSA-2048 was used.
-The KEKs are created in OSWS (inside `OSWS.KeyManager/Providers/AzureKeyVaultProvider`), but after that, the KEK never leaves KV again, and are then called by OSWS to wrap and unwrap the DEKs.
-
-For the DEKs OSWS, create these themselves.
-These symmetric AES keys have sizes 128, 192, or 256, and are created during the encryption of Parquet files.
-
-=== Encryption Flow
-#label("sec:encryption-flow")
-
-The encryption flow works as follows:
-
-+ Client uploads unencrypted Parquet file, via `PUT /s3/{bucket}/{key}`.
-+ OSWS creates an RSA-2048 key and is tagged with the uploading user's role.
-+ For each column designated for encryption, an AES DEK of specified sizes is generated and encrypted, within `OSWS.ParquetSolver/Helpers/Cryptography`.
-+ Each DEK are then wrapped by using the KV, then serialized, and put into the footer of the Parquet file.
-+ The encrypted Parquet file is then written using Parquet Sharp.
-+ Parquet file is then sent to the S3-compatible object store.
-+ Columns, key IDs, and permissions are persisted in local PostgreSQL.
-
-=== Decryption Flow
-
-The decryption flow works as follows:
-
-+ The client requests a Parquet file, via `GET /s3/{bucket}/{key}`.
-+ OSWS fetches the encrypted Parquet file, first tries in local cache, then if not found, it goes to S3-compatible object store (see `OSWS.WebApi/Services/Services/S3ObjectFetcher`)
-+ Wrapped DEKs are read from the Parquet footer.
-+ For each wrapped DEK, OSWS checks the in-memory DEK cache.
-  On a cache miss, it calls the KV decrypt method to unwrap the DEK and caches the result.
-+ The user's effective roles are computed via @listing:effective-roles.
-+ The permitted columns are now decrypted, while the others are replaced by dummy columns#footnote[Due to limitations in Parquet Sharp, it is not possible to leave the encrypted column alone, and thus has to be replaced.]
-+ The decrypted Parquet stream is returned to the client.
-
-== RBAC
-
-In @sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_. Our implementation of RBAC follows this mostly, but differs in a few ways. In @er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
-`User` and `Role` have a many-to-many relationship through `RoleAssignment`.
-Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`.
-The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is however no concept of _operations_, only whether or not access is granted. 
-There is also no formal concept of _sessions_ as described by #cite(<ferraiolo1992rbac>, form: "prose"), however, when a user is authenticated through their S3 Credential, their assigned roles are loaded. In this way, it can be seen as an activation of all the users assigned roles.
 
 === Role Hierarchy
 
@@ -238,26 +130,68 @@ Unwrapped DEKs are cached in-memory to avoid repeated calls to KV, as it is one 
 The cached DEK is keyed with the KEK identifier, and in the configuration, the TTL can be defined for regular and admin users, as admin users' keys are most often more privileged.
 The cache enforces a maximum capacity and evicts the expired entries first and then the oldest entries by expiration date.
 
-== API
+=== Envelope Encryption
 
-OSWS exposes three different endpoint groups.
+To encrypt the Parquet columns, OSWS needs to use DEKs and KEKs to achieve envelope encryption@azure_envelope_encryption.
+This deviates from the original proposed solution in Trøstrup~and~Hanson~@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
+By using envelope encryption, OSWS can cache the unwrapped DEKs with a specified TTL to allow quicker decryption.
+This results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.
 
-=== S3-Compatible Endpoints
+=== Parquet Solver
 
-A subset of S3 required endpoints is implemented to allow for the object store operations.
-These operations can be seen in @tab:s3-compatible-endpoints.
+Parquet Solver handles the cryptographic operations for the Parquet files.
+Important design decisions made here are that it uses Parquet Sharp.
+Parquet Sharp was chosen as it supports PME, but does not support partial decryption/reads of Parquet files.
+This results in the fact that when a Parquet file has to be decrypted, it essentially decrypts and copies over all the columns into a new Parquet file.
+But it does not support copying over the columns which are not supposed to be decrypted.
+As a result, dummy columns are created, and given the setup of OSWS, they are encrypted and copied over into the new Parquet file.
 
-#include "4-system-design/s3-compatible-endpoints.typ"
+This is one of the design choices made that later created more problems than it solved.
 
-Currently, non-Parquet files pass through the encryption step, and the endpoints defined are only to allow operations made by most query engines, and thus suffice for making an MVP.
-In the future, this should be extended to also allow non-Parquet files to be encrypted and then include the KEK reference within the Parquet file referencing it, and the endpoints should also be extended.
+=== Authentication
 
-=== Application Endpoints
+Due to S3 requiring signage, the calls from the clients going to OSWS are signed as well, and as a result, OSWS cannot reuse the signature and encrypt the Parquet columns.
+Internal authentications were therefore needed, and OSWS then has its own signature for S3.
 
-OIDC-protected endpoints for the web frontend.
-See the endpoints in @tab:applications-endpoints.
+=== AWS Signature V4 (S3 API)
+<sec:sigv4>
 
-#include "4-system-design/application-endpoints.typ"
+Because OSWS had to use an S3-compatible API, it also had to use the same validation as S3.
+A custom `SigV4AuthenticationHandler` has been created to parse the authorization header and extract the `AccessKeyId`.
+The keys corresponding to the `S3Credential` record are then looked up in the internal PostgreSQL, see the `S3Credential` table in @er-diagram.
+The signature is verified using the stored secret key.
+On success, a `ClaimsPrincipal` is created carrying the user's database ID, name, email, and default role.
+
+This follows the AWS specification "Authenticating Requests (AWS Signature Version 4)"@aws_signiture_version_4.
+
+=== OIDC
+<sec:oidc>
+
+The React frontend, for handling RBAC, uses OIDC for the authentication flow.
+The OIDC provider chosen for OSWS is #link("https://pocket-id.org/")[Pocket ID], as it is simple to set up, is #link("https://github.com/pocket-id/pocket-id")[open-source], and uses passkeys, which are more secure than standard MFA, as "common multifactor authentication methods can be intercepted or relayed"@bitwarden_passkeys.
+
+The backend still supports other OIDC providers.
+To use other providers, `OSWS.WebApi/appsettings.json` needs to be updated to reflect the change, and the frontend `.env` has to point to the specified authority and client ID.
+
+On the first login, the `api/me` endpoint triggers JIT provisioning, and a new `User` record and `ExternalIdentity` record are created in the database.
+Subsequent logins will synchronize the OIDC provider's claims.
+
+== RBAC
+
+In @sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_. Our implementation of RBAC follows this mostly, but differs in a few ways. In @er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
+`User` and `Role` have a many-to-many relationship through `RoleAssignment`.
+Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`.
+The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is however, no concept of _operations_, only whether or not access is granted. 
+There is also no formal concept of _sessions_ as described by Ferraiolo~et~al.@ferraiolo1992rbac; however, when a user is authenticated through their S3 Credential, their assigned roles are loaded. In this way, it can be seen as an activation of all the users assigned roles.
+
+=== Key Hierarchy
+
+The KEK sizes are specified within the KV that the admin chooses.
+Due to having student credits available in Azure, which was only available for a low-cost KV, RSA-2048 was used.
+The KEKs are created in OSWS (inside `OSWS.KeyManager/Providers/AzureKeyVaultProvider`), but after that, the KEK never leaves KV again, and are then called by OSWS to wrap and unwrap the DEKs.
+
+For the DEKs OSWS, create these themselves.
+These symmetric AES keys have sizes 128, 192, or 256, and are created during the encryption of Parquet files.
 
 === Administrative Endpoints
 
@@ -265,7 +199,7 @@ Endpoints for admin endpoints are restricted to only users who have the `IsRbacA
 
 #include "4-system-design/administrative-endpoints.typ"
 
-== Frontend Architecture
+=== Frontend Architecture
 
 A frontend for interacting with the endpoints described in @tab:applications-endpoints and @tab:admin-endpoints was built using Typescript-React. To quickly create a user-friendly working prototype, UI components from the open-source project `shadcn` @shadcn was used. A user can login using PocketID, as described in @sec:oidc. Here, the user can create credentials to be used for the S3-Compatible API endpoint. If the user is an RBAC Admin, they get access to the admin panel for managing roles.
 The admin panel includes a table view for viewing currently existing users, roles, columns and permissions.
@@ -289,3 +223,86 @@ GRANT admin TO USER alice;
 => POST /api/admin/users/1/roles/1
 ```)
 )<listing:peggy>
+
+// DELETE FROM SYSD2 =============================================================================================
+#delete[OSWS consists of the five main components, see~@fig:osws-architecture-overview.
+
+The data flow for a read request is as follows: the client sends an S3 `GetObject` request to the Encryption Gateway, which authenticates via SigV4.
+Then the gateway retrieves the encrypted Parquet file from the Object Store - checking the file cache first.
+The DEKs, which the client has access to, are sent to KV to get unwrapped if they were not found in the DEK cache.
+The "Parquet Solver" then decrypts the available columns and replaces any that cannot be decrypted.
+The new Parquet file is now returned to the client.
+
+For a write request, the client uploads a Parquet file via. `PutObject`.
+The "Parquet Solver" encrypts the columns with newly generated DEKs, wraps them via. KV, and stored the wrapped DEKs inside the Parquet files.
+Columns and permissions are persisted inside the RBAC database.
+
+=== Key Manager
+<sec:osws-keymanager>
+
+The Key Manager provides an abstraction over cryptographic key storage and the relational model.
+
+- `AzureKeyVaultProvider`: Implements `IKeyVaultProvider`.
+  It creates keys (which are defined in `OSWS.Common/Configuration/EncryptionSettings`) in Azure Key Vault, performs the wrap and unwrap of the DEKs server-side, using the algorithm defined within `OSWS.ParquetSolver/Helpers/Cryptography`.
+- `InternalKeyVaultProvider`: Implements `IKeyVaultProvider`.
+  It works the same as `AzureKeyVaultProvider` but runs on OSWS itself.\
+  As long as `IKeyVaultProvider` is implemented together with a key vault provider, which means it supports the following functions: encrypt, decrypt, get key info, and list keys, most providers should be able to be used.
+- `OswsContext`: Implements `DbContext`.
+  Defines the relational schema over PostgreSQL, including users, roles, role assignments, role inheritance, permissions, columns, keys, external identities, and S3 credentials.
+
+=== Shared Libraries
+
+- `OSWS.Models` defines all the DTOs and entities used within the solution.
+- `OSWS.Common` contain classes containing settings for the project, including. `EncryptionSettings`, `CacheSettings`, `S3Settings`, `KeyVaultSettings`, and `RateLimitSettings`.
+  They are bound to `appsettings.json` at startup, and they also include validation logic for the configuration.
+- `OSWS.Library` has utility helpers for AWS credential normalization, S3 metadata translation, HTTP range request parsing, parameter validation, and XML extensions.
+
+=== Encryption Flow
+#label("sec:encryption-flow")
+
+The encryption flow works as follows:
+
++ Client uploads unencrypted Parquet file, via `PUT /s3/{bucket}/{key}`.
++ OSWS creates an RSA-2048 key and is tagged with the uploading user's role.
++ For each column designated for encryption, an AES DEK of specified sizes is generated and encrypted, within `OSWS.ParquetSolver/Helpers/Cryptography`.
++ Each DEK are then wrapped by using the KV, then serialized, and put into the footer of the Parquet file.
++ The encrypted Parquet file is then written using Parquet Sharp.
++ Parquet file is then sent to the S3-compatible object store.
++ Columns, key IDs, and permissions are persisted in local PostgreSQL.
+
+=== Decryption Flow
+
+The decryption flow works as follows:
+
++ The client requests a Parquet file, via `GET /s3/{bucket}/{key}`.
++ OSWS fetches the encrypted Parquet file, first tries in local cache, then if not found, it goes to S3-compatible object store (see `OSWS.WebApi/Services/Services/S3ObjectFetcher`)
++ Wrapped DEKs are read from the Parquet footer.
++ For each wrapped DEK, OSWS checks the in-memory DEK cache.
+  On a cache miss, it calls the KV decrypt method to unwrap the DEK and caches the result.
++ The user's effective roles are computed via @listing:effective-roles.
++ The permitted columns are now decrypted, while the others are replaced by dummy columns#footnote[Due to limitations in Parquet Sharp, it is not possible to leave the encrypted column alone, and thus has to be replaced.]
++ The decrypted Parquet stream is returned to the client.
+
+== API
+
+OSWS exposes three different endpoint groups.
+
+=== S3-Compatible Endpoints
+
+A subset of S3 required endpoints is implemented to allow for the object store operations.
+These operations can be seen in @tab:s3-compatible-endpoints.
+
+#include "4-system-design/s3-compatible-endpoints.typ"
+
+Currently, non-Parquet files pass through the encryption step, and the endpoints defined are only to allow operations made by most query engines, and thus suffice for making an MVP.
+In the future, this should be extended to also allow non-Parquet files to be encrypted and then include the KEK reference within the Parquet file referencing it, and the endpoints should also be extended.
+
+=== Application Endpoints
+
+OIDC-protected endpoints for the web frontend.
+See the endpoints in @tab:applications-endpoints.
+
+#include "4-system-design/application-endpoints.typ"
+
+
+]// DELETE SYSD2 all to here, I guess ===========================================================================
