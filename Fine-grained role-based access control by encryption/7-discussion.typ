@@ -117,3 +117,15 @@ The microbenchmarks in @sec:microbench also showed that the impact of authorizin
 === Role Management
 
 Role management (creating and assigning roles, granting permissions) using the implemented "query editor" provided an intuitive and familiar way of managing roles. Though this is just a wrapper over the admin API, and it could be implemented in many ways, this "query editor" is a valid option that could be used in the future.
+
+=== Known Security Considerations
+
+Two implementation-level security issues are acknowledged in the current OSWS release, within #link("https://github.com/lucasfth/osws/blob/V2026.0.0-alpha/KNOWN_ISSUES.md")[`KNOWN_ISSUES.md`].
+
+First, S3 credential secret keys are stored in plaintext in the PostgreSQL database, as the SigV4 authentication handler requires the raw key for HMAC derivation.
+If the database is compromised, all S3 credentials become immediately usable.
+A mitigation would be to encrypt secret keys at rest using Azure Key Vault, decrypting on read during SigV4 verification.
+
+Second, the RBAC admin flag is provisioned just-in-time from OIDC claims on every login.
+If the OIDC provider exposes this as a self-service field, users could grant themselves admin access.
+This is dependent on the OIDC provider configuration and can be mitigated by using a dedicated admin identity provider or restricting claim sources.
