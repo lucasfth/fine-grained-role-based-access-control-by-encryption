@@ -2,21 +2,16 @@
 
 = Results
 
-This section will cover the results of running both the benchmarks and e2e tests described in~@sec:methodology, and quickly define what they mean.
-
-// #delete[After running both the tests and benchmarks, important observations have been made.
-// OSWS works with query engines without modification, as seen by #todo[add proof of e2e test], but modifications to both OSWS and managed all-in-one platforms are needed for interoperability, see #todo[ref to sec].]
+This section will cover the results of running both the benchmarks and e2e tests described in~@sec:methodology, and describe their significance.
 
 == E2E Tests
 
-An end-to-end test suite was written to test Python using PyArrow, DuckDB and PySpark against OSWS as an S3 endpoint.
+An e2e test suite was written to test Python using PyArrow, DuckDB and PySpark against OSWS as an S3 endpoint.
 No modifications were made to the tools outside of changing the S3-endpoint to an instance of OSWS.
 The test suite shows that all three tools are successfully able to query a Parquet file and perform operations on the result.
 The users are identified through their credentials, and columns that the users' roles do not give access to are masked correctly.
 
 This demonstrates that OSWS works as a drop-in replacement for S3 when working with query engines that fetch Parquet files directly and do not store metadata.
-
-#todo[ducklake here?]
 
 == Benchmarking
 <sec:benchmarking>
@@ -25,19 +20,22 @@ This demonstrates that OSWS works as a drop-in replacement for S3 when working w
 <sec:microbench>
 
 #import "6-results/micro-boxplot.typ": microboxplot
+#microboxplot
 
-In @fig:micro-boxplot, all box-plots increase in duration whenever their role depth, flat roles, or the number of rows increases (Note that the y axis is not equal, and some of them are linear and others logarithmic).
-The latency for Permission Hierarchy Benchmark, see~@fig:permission-hier-boxplot, and Permission Service Benchmark, see~@fig:permission-service-boxplot, both have a minor contribution to latency.
+In @fig:micro-boxplot, all box-plots increase in duration whenever their role depth, flat roles, or the number of rows increases (Note that the $y$ axis are not necessarily using the same scale and three of them are log-scaled).
+The latency for Permission Hierarchy Benchmark, see~@fig:permission-hier-boxplot, and Permission Service Benchmark, see~@fig:permission-service-boxplot, both have a minor contribution to latency, which is expected for RBAC-related calls.
+These will not be referenced more as optimizations for these would not provide much benefit.
 
-The major contributors to latency are decryption, see @fig:decryption-boxplot, and DEK unwrapping.
+The major contributors to latency are decryption, see~@fig:decryption-boxplot, and DEK unwrapping, see~@fig:unwrap-boxplot.
 
-*DEK unwrapping* is close to constant.
+_DEK unwrapping_ is close to constant.
 But the time is not something that can be improved much besides changing the KV service provider to a faster alternative, and then, as OSWS currently does, cache the unwrapped DEK heavily to use KV as little as possible.
-The values can be seen in more details in more details in @app:micro, but essentially the _p99_ time for unwrapping key size 256 of a tiny file is _4.11 seconds_, with a mean of _3.92 seconds_, meaning that caching the unwrapped DEKs is essential.
+The values can be seen in more details in more details in @app:micro, but essentially the _p95_ time for unwrapping key size $256$ of a tiny file is $4.11$ seconds, with a mean of $3.92$ seconds, meaning that caching the unwrapped DEKs is essential, as if not cached this time would have to be added to each time a column has to be decrypted.
 
-*Decryption* is the other main contributor.
-With the tiny file, it has a _p99_ of _17.1 milliseconds_ and a mean of _13.6ms_, whilst for the medium and extra large, they are respectively, _p99_ _1.8 seconds_, mean _1.68 seconds_, and _p99_ _15.5 seconds_, mean _14.7 seconds_.
-So, essentially, to make OSWS usable for larger files, changes are needed in the decryption.
+_Decryption_ is the other main contributor.
+With the tiny file, it has a _p95_ of $17.1$ milliseconds and a mean of $13.6$ms, whilst for the medium and extra large, they are respectively, _p95_ $1.8$ seconds, mean $1.68$ seconds, and _p95_ $15.5$ seconds, mean $14.7$ seconds.
+So, essentially, to make OSWS usable for larger files, changes are needed in the decryption step.
+#todo[Some of it might be possible to solve by using more asynchronous work, but also to make less operations.] // Burde denne ikke replace den sætning som er nedenfor da det vel mere er diskussion. Så denne addresser kort hvad løsningen kunne være men ikke hvad den er
 
 The large numbers for the decryptions are due to a few design decisions.
 First of #link("https://github.com/lucasfth/osws/releases/tag/V2026.0.0-alpha")[V2026.0.0 Alpha] relies on Parquet Sharp version 21.0.0, which, as mentioned, makes it necessary, regardless of permission level, to copy over the whole Parquet file.
@@ -47,32 +45,34 @@ So instead of the computations being directly related to the number of Parquet c
 
 $ "Decryption:" O(|"columns"|) >= O(|"columns"_"authorized"|) $
 
-#microboxplot
 
 === E2E Benchmarks
 <sec:e2e-bench>
 
 #import "6-results/e2e-bar-plots.typ": e2eplots
+#e2eplots
 
-To begin with, comparison of cold GET latency with and without the DEK cache enabled is shown in @fig:dekcachelatency. Only tiny to medium is included due to the benchmark timing out on larger files (>600s).
+To begin with, comparison of cold GET latency with and without the DEK cache enabled is shown in~@fig:dekcachelatency.
+Only tiny to medium is included due to the benchmark timing out on large and x-large Parquet files (>600s).
 #todo[se om vi skal bruge large og xlarge selvom de timer ud jf martin feedback]
 However, even without large files, the DEK cache is invaluable even on small files, and on larger files, the system gets unusably slow without the DEK cache.
-At first, it seemed surprising that the difference between a _cold_ GET, that is, where the DEK cache is empty from the start, and a GET where the DEK cache is not enabled, is this large.
-However, it makes sense given that the DEK cache is warmed up as the file is being read, since reading a row chunk will populate the DEK cache with the columns of that chunk.
+At first, it seemed surprising that there was a difference between a cold GET and a warm GET.
+For the tiny GET, it was close to $120$ times and $3562$ms more slow on average, and for the medium, it was close to $4$ times and $4148$ms slower.#footnote[Calculated from the results shown in~@app:e2e-res]
+However, it makes sense given that the DEK cache is warmed up as the file is being read, since reading a row chunk will populate the DEK cache with the given columns of that chunk.
 Since the whole column is encrypted with the same DEK, once that column is reached again in a new row chunk, the cache is warm.
 This shows that the DEK cache is a must-have for OSWS.
-For that reason, the "no DEK cache" configuration is omitted from here. 
+For that reason, the "no DEK cache" configuration is omitted from here on. 
 
-@fig:e2eplot shows the results of the rest of the end-to-end benchmark suite. 
+@fig:e2eplot shows the results of the rest of the e2e benchmark suite. 
 Originally, the intent was to have an x-large file size as well, but this turned out to be too slow to reasonably include in the plots.
-This also shows that there is a weakness when the files get to the ~1GB size.
+This also shows that there is a weakness when the files get to the $\~1$GB size.
 
-However, looking at~@fig:median-get-latenct-warm-cache for a *warm* GET, it is again clear that the DEK cache is a must-have.
+However, looking at~@fig:median-get-latenct-warm-cache for a warm GET, it is again clear that the DEK cache is a must-have.
 On smaller files, all configurations of OSWS actually come close to the direct Digital Ocean fetch, though there is clearly a lot of overhead still.
 Interestingly, the "no encrypt" is seemingly a bit _slower_ than the other configurations for the "tiny" and "small" configuration, even though it should just be the pure network overhead.
 However, disabling encryption also disables the file cache, which might be why it is slower -- due to it having to go to Digital Ocean every time.
 
-In~@fig:median-get-latency-cold-cache *cold* GET is shown.
+In~@fig:median-get-latency-cold-cache cold GET is shown.
 Direct fetch is omitted here due to there being no "cold" path -- this is the same as~@fig:median-get-latenct-warm-cache.
 Here, the "no encryption" configuration is an order of magnitude faster for the "tiny" and "small" configurations, which highlights the overhead of the decryption step. However, as the files get larger, the network overhead starts to show as well, when the "no encryption" configuration starts to approach the other configurations.
 
@@ -83,6 +83,4 @@ Again, as files get larger, the relative overhead reduces as network transfer be
 
 #include "6-results/dekcachelatency.typ"
 
-#todo[Probably needs some specific numbers mentioned. Like takes this amount of sec for this size. And something like this setup is XXX sec/ms slower than S3 direct...]
-
-#e2eplots
+#todo[Probably needs some specific numbers mentioned. Like takes this amount of sec for this size. And something like this setup is XXX sec/ms slower than S3 direct...] // Prøvede bare at nævne lidt tal i starten af e2e

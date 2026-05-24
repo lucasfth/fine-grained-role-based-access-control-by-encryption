@@ -82,4 +82,4 @@
 
     Column ||--o{ Key : "encrypted with"
 ```)
-)<er-diagram>
+)<fig:er-diagram>

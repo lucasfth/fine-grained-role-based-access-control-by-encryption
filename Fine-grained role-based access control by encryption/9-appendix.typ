@@ -3,7 +3,7 @@
 = Appendix
 
 == Encrypted Parquet Footer
-<sec:encrypted-parquet>
+<app:encrypted-parquet>
 
 #figure(
   placement: bottom,
@@ -17,7 +17,7 @@
 #pagebreak()
 
 == VM Specification
-<sec:vm-spec>
+<app:vm-spec>
 
 #include "9-appendix/vm.typ"
 
@@ -31,5 +31,6 @@
 #pagebreak()
 
 == E2E Latency Benchmark Results
+<app:e2e-res>
 
 #include "9-appendix/e2e-text.typ"

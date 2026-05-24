@@ -3,13 +3,9 @@
 = System Design
 <sec:system-design>
 
-OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library, see~@sec:encryption-flow.
-But due to how some of these work on specific query engines can work with OSWS, see~@sec:discussion for more info.
-// bedre? ↑ Trøstrup resten af infoen er rykket til diskussion
-Though some changes can be made to bridge these two different design choices, see more in~@sec:discussion.
-What the current OSWS solves is that query engines, which read metadata from object storage and do not use cached values, will have columnar access control enforced on the data they read.
-This ensures that, from the query engine's perspective, they are using S3 directly, but in reality use OSWS, and they can now read and write data to S3 as usual, but role-based access control is ensured on the column level.
-So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive, depending on the setup of OSWS, all columns, but `birthday` will be either null values or an encrypted column.
+What the current OSWS solves is that query engines, which read metadata from Object Store and do not use cached values, will have columnar access control enforced on the data they read.
+This ensures that, from the query engine's perspective, they are using S3 directly, but in reality use OSWS, and it can enforce whatever RBAC rules it wants on the clients.
+So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive, all columns, but `birthday` will have null or another default value.
 
 Below, the design choices will be described in more depth, together with deeper technical information.
 
@@ -17,10 +13,10 @@ Below, the design choices will be described in more depth, together with deeper 
 
 OSWS is set up as a wrapper for S3 and thereby provides S3-compatible API endpoints for clients.
 The purpose of OSWS is to provide column-level access controls to S3, whilst not modifying the S3 API.
-This ensures that most S3-compatible query engines are able to use OSWS without modifications and that they will only be able to read what they are supposed to.
+This ensures that most S3-compatible query engines can use OSWS without modification and will only read what they are supposed to.
 
 The system is built on ASP.NET Core 10 using the minimal API pattern@minimal-api, which replaces traditional MVC with lightweight endpoint definitions.
-OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Ocean Spaces).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
+OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Ocean Spaces for benchmarking).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
 
 #figure(
   caption: [OSWS system components and their responsibilities],
@@ -74,13 +70,16 @@ This allows OSWS to ensure fine-grained role-based access control in data lakes,
 
 #include "4-system-design/er-diagram.typ"
 
-An Entity Relationship describing the database design can be seen in @er-diagram.
-The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, see @sec:sigv4, and external identity information from the OpenID Provider(s).
+An Entity Relationship describing the database design can be seen in @fig:er-diagram.
+The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, #delete[see~@sec:sigv4 for more info on SigV4], and external identity information from the OpenID Provider(s).
 
 === Role Hierarchy
 
-OSWS also supports Hierarchical RBAC through the `RoleInheritance` tables. This is a self-referential table in which a hierarchical relation is created through the `ParentRoleId` and `ChildRoleId` foreign keys, so that a _parent_ inherits from a `child` (see `RoleInheritance` in @er-diagram.) This means that all permissions of _child_ also become permissions of _parent_.
-To get the full set of effective roles for a user, a recursive SQL query is used to navigate the hierarchy. This can be seen in @listing:effective-roles.
+OSWS also supports Hierarchical RBAC through the `RoleInheritance` tables.
+This is a self-referential table in which a hierarchical relation is created through the `ParentRoleId` and `ChildRoleId` foreign keys, so that a _parent_ inherits from a `child`, see `RoleInheritance` in~@fig:er-diagram.
+This means that all permissions of _child_ also become permissions of _parent_.
+To retrieve the full set of effective roles for a user, a recursive SQL query traverses the hierarchy. This can be seen in @listing:effective-roles.
+
 #figure(
   kind: "listing",
   supplement: "Listing",
@@ -112,7 +111,7 @@ This ensures fine-grained access control.
 If a Parquet file _P1_ with columns _name_, _age_, and _civil\_personal\_register_ exists.
 Then a user _U1_ and a user _U2_ can respectively give access to role _R1_ and _R2_.
 _R1_ provides access to only _name_ and _R2_ only to _age_ and _civil\_personal\_register_.
-Then _U1_ would see a table full of valid _names_ whilst _age_ and _civil\_personal\_register_ are either null values or some dummy encrypted values (depends on the configuration of OSWS), while _U2_ would see _age_ and _civil\_personal\_register_ values.
+Then _U1_ would see a table full of valid _names_ whilst _age_ and _civil\_personal\_register_ are null/default values, while _U2_ would see _age_ and _civil\_personal\_register_ values.
 
 == Caching
 
@@ -126,16 +125,16 @@ They are keyed with `SHA256(bucket::key)`, see `OSWS.ParquetSolver/Helpers/Encry
 
 === DEK Cache
 
-Unwrapped DEKs are cached in-memory to avoid repeated calls to KV, as it is one of the major latency attributes, see @sec:benchmarking.
+Unwrapped DEKs are cached in-memory to avoid repeated KV calls, as it is one of the major latency attributes, discussed later.
 The cached DEK is keyed with the KEK identifier, and in the configuration, the TTL can be defined for regular and admin users, as admin users' keys are most often more privileged.
-The cache enforces a maximum capacity and evicts the expired entries first and then the oldest entries by expiration date.
+The cache enforces a maximum capacity and evicts the expired entries first, and then the oldest entries by expiration date.
 
 === Envelope Encryption
 
 To encrypt the Parquet columns, OSWS needs to use DEKs and KEKs to achieve envelope encryption@azure_envelope_encryption.
 This deviates from the original proposed solution in Trøstrup~and~Hanson~@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
 By using envelope encryption, OSWS can cache the unwrapped DEKs with a specified TTL to allow quicker decryption.
-This results in a solution with little overhead, more about this in~@sec:e2e-bench, and ensuring column-level access control.
+This results in a solution with little overhead and ensures column-level access control.
 
 === Parquet Solver
 
@@ -158,7 +157,7 @@ Internal authentications were therefore needed, and OSWS then has its own signat
 
 Because OSWS had to use an S3-compatible API, it also had to use the same validation as S3.
 A custom `SigV4AuthenticationHandler` has been created to parse the authorization header and extract the `AccessKeyId`.
-The keys corresponding to the `S3Credential` record are then looked up in the internal PostgreSQL, see the `S3Credential` table in @er-diagram.
+The keys corresponding to the `S3Credential` record are then looked up in the internal PostgreSQL, see the `S3Credential` table in~@fig:er-diagram.
 The signature is verified using the stored secret key.
 On success, a `ClaimsPrincipal` is created carrying the user's database ID, name, email, and default role.
 
@@ -178,10 +177,12 @@ Subsequent logins will synchronize the OIDC provider's claims.
 
 == RBAC
 
-In @sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_. Our implementation of RBAC follows this mostly, but differs in a few ways. In @er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
+In~@sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_.
+OSWS implements RBAC mostly following this, but it differs in a few ways.
+In~@fig:er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
 `User` and `Role` have a many-to-many relationship through `RoleAssignment`.
-Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`.
-The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is however, no concept of _operations_, only whether or not access is granted. 
+Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`s.
+The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is, however, no concept of _operations_, only whether or not access is granted. 
 There is also no formal concept of _sessions_ as described by Ferraiolo~et~al.@ferraiolo1992rbac; however, when a user is authenticated through their S3 Credential, their assigned roles are loaded. In this way, it can be seen as an activation of all the users assigned roles.
 
 === Key Hierarchy
@@ -195,15 +196,22 @@ These symmetric AES keys have sizes 128, 192, or 256, and are created during the
 
 === Administrative Endpoints
 
-Endpoints for admin endpoints are restricted to only users who have the `IsRbacAdmin` flag, seen in the `User` table in @er-diagram. This field is populated from the `ClaimsPrincipal` when provisioning the user in the `/api/me` route. Thus, it requires the OIDC Provider to include this claim on users who should have admin access. Alternatively, it can be set manually.
+Endpoints for admin endpoints are restricted to only users who have the `IsRbacAdmin` flag, seen in the `User` table in @fig:er-diagram. This field is populated from the `ClaimsPrincipal` when provisioning the user in the `/api/me` route. Thus, it requires the OIDC Provider to include this claim on users who should have admin access. Alternatively, it can be set manually.
 
 #include "4-system-design/administrative-endpoints.typ"
 
 === Frontend Architecture
 
-A frontend for interacting with the endpoints described in @tab:applications-endpoints and @tab:admin-endpoints was built using Typescript-React. To quickly create a user-friendly working prototype, UI components from the open-source project `shadcn` @shadcn was used. A user can login using PocketID, as described in @sec:oidc. Here, the user can create credentials to be used for the S3-Compatible API endpoint. If the user is an RBAC Admin, they get access to the admin panel for managing roles.
+A frontend for interacting with the endpoints described in @tab:applications-endpoints and @tab:admin-endpoints was built using Typescript-React.
+To quickly create a user-friendly working prototype, #delete[UI components from the open-source project `shadcn` @shadcn were used.] // Virker lidt ligegyldigt ift hvad OSWS er og kan
+A user can log in using Pocket ID, as described in @sec:oidc.
+Here, the user can create credentials to be used for the S3-Compatible API endpoint.
+If the user is an RBAC Admin, they get access to the admin panel for managing roles.
 The admin panel includes a table view for viewing currently existing users, roles, columns and permissions.
-To interact with the endpoints described in @tab:admin-endpoints, a "query editor" was built to manage RBAC operations in an SQL-like syntax, reminiscent of the syntax used to manage permissions in e.g. PostgreSQL.#footnote[#link("https://www.postgresql.org/docs/current/sql-grant.html")] Using the JavaScript library `peggyjs` @peggyjs, a simple grammar was written to parse statements into API calls. Some example statements to configure RBAC permissions and the API calls they parse to can be seen in @listing:peggy.
+To interact with the endpoints described in @tab:admin-endpoints, a "query editor" was built to manage RBAC operations in an SQL-like syntax, reminiscent of the syntax used to manage permissions in e.g. PostgreSQL.#footnote[#link("https://www.postgresql.org/docs/current/sql-grant.html")]
+Using the JavaScript library `peggyjs` @peggyjs, a simple grammar was written to parse statements into API calls.
+Some example statements to configure RBAC permissions and the API calls they parse can be seen in @listing:peggy.
+
 #figure(
   kind: "listing",
   supplement: "Listing",
@@ -306,3 +314,30 @@ See the endpoints in @tab:applications-endpoints.
 
 
 ]// DELETE SYSD2 all to here, I guess ===========================================================================
+
+== Limitations
+<sec:sys-design:limitations>
+
+// OSWS intends to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
+// But due to how some of these query engines work, only specific ones can work with OSWS and the "fully managed all-in-one cloud platforms" do not work as they would have to whitelist a URL.
+// #todo[Der er jo to issues med fully-managed: 1. vi kan ikke teste pga. whitelist 2. sandsynligvis cacher de filstørrelse. Men vi ved jo reelt ikke om 2 gælder, og vi ved ikke om det  reelt vi virke hvis vi faktisk have whitelistet. Så jeg føler det måskeer lidt forkertat sige "it does not work" - altså nej, det gør det jo ikke, men det er jo kun fordi vi ikke har kunne TESTE det - så jeg sidder og tænker, hvor burde vi diskutere det?]
+// Some changes can be made to bridge how OSWS handles cryptography and how the query engines expect to query, but will be discussed in more detail in~@sec:discussion.
+
+OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
+But due to early design decisions, this was not possible.
+As OSWS uses Parquet Sharp and stores cryptographic keys within the metadata of the Parquet files, a few issues appear with some query engines.
+First, Parquet Sharp uses Apache Arrow, which itself supports writing metadata.@ParquetSharp_2026-repo
+This in itself makes sense, as it is possible by looking at e.g. `created_by` to see who created the Parquet file.@apache-arrow
+But as Parquet Sharp needs to write when encrypting the Parquet file, the file is essentially changed with new metadata, and it will no longer be the same Parquet file that the query engine inserted.
+This results in the fact that if the query engine stores metadata for ranges that are incorrect, which break their range requests.
+On top of that, OSWS saves cryptographic-related metadata within the footer, and that is yet another modification.
+As such, for this to work with all query engines, it would have to be ensured that all ranges of data remain the same, also after encryption.
+
+The same issue is probably prevalent on most “fully managed all-in-one cloud platforms”, but it is not possible to test, due to it needing to have a URL whitelisted by the providers to test the OSWS system.
+But given documentation of e.g. Snowflake, it seems to point towards incompatibility.@snowflake_external_tables@snowflake_external_tables_files
+
+In~@sec:discussion, this will be discussed in more depth and possible solutions to bridge these two design incompatibilities.
+
+Lastly, initially, it was intended to make OSWS return the encrypted columns.
+But due to the limitations in Parquet Sharp, it was not possible, and the current solution is instead to create null/default (dummy) data entries for the column.
+There is an unimplemented method ready to encrypt this dummy data to simulate the idea of returning encrypted data, but it was not implemented due to being redundant since OSWS already had the previously mentioned limitations.
