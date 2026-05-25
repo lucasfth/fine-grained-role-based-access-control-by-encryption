@@ -5,7 +5,7 @@
 
 What the current OSWS solves is that query engines, which read metadata from Object Store and do not use cached values, will have columnar access control enforced on the data they read.
 This ensures that, from the query engine's perspective, they are using S3 directly, but in reality use OSWS, and it can enforce whatever RBAC rules it wants on the clients.
-So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive, all columns, but `birthday` will have null or another default value.
+So if you have a dataset with columns `name`, `birthday`, and `relational status`, and the query engine is not granted access to `birthday`, it will receive all columns, but `birthday` will have null or another default value.
 
 Below, the design choices will be described in more depth, together with deeper technical information.
 
@@ -16,7 +16,7 @@ The purpose of OSWS is to provide column-level access controls to S3, whilst not
 This ensures that most S3-compatible query engines can use OSWS without modification and will only read what they are supposed to.
 
 The system is built on ASP.NET Core 10 using the minimal API pattern@minimal-api, which replaces traditional MVC with lightweight endpoint definitions.
-OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Ocean Spaces for benchmarking).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
+OSWS uses: PME via. Parquet Sharp, PostgreSQL for RBAC metadata, Azure KV for key management, and a configurable S3-compatible Object Store (tested with Cloudflare R2 and Digital Oceans Spaces for benchmarking).#footnote[Codebase available at #link("https://github.com/lucasfth/osws")[github.com/lucasfth/osws]]
 
 #figure(
   caption: [OSWS system components and their responsibilities],
@@ -54,8 +54,8 @@ After the key manager returns the unwrapped DEKs, the Parquet solver can decrypt
 Now the encryption gateway can return the Parquet file, showing only the information that the client has access to.
 
 When the encryption gateway gets a PUT request, it first gets the user's base role.
-#speculation[This is mistakenly done by taking their first role, but should have been tied to their base role instead.
-] // DIS OKAY?
+For testing purposes it was tied to the user's first role, but should have been tied to their base role or the one provided through the credential.
+#todo[TRØLLE DO SOMSING]
 Then the Parquet solver is given the file and role, so it can generate new DEKs per column and a KEK for the Parquet file.
 The RBAC store is updated with the new columns and key references, and the file is encrypted afterwards.
 It also handles wrapping the keys initially so the wrapped DEKs can be put into the metadata, and KEK is given to the key manager to insert into KV.
@@ -71,7 +71,7 @@ This allows OSWS to ensure fine-grained role-based access control in data lakes,
 #include "4-system-design/er-diagram.typ"
 
 An Entity Relationship describing the database design can be seen in @fig:er-diagram.
-The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, #delete[see~@sec:sigv4 for more info on SigV4], and external identity information from the OpenID Provider(s).
+The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, and external identity information from the OpenID Provider(s).
 
 === Role Hierarchy
 
@@ -132,18 +132,19 @@ The cache enforces a maximum capacity and evicts the expired entries first, and 
 === Envelope Encryption
 
 To encrypt the Parquet columns, OSWS needs to use DEKs and KEKs to achieve envelope encryption@azure_envelope_encryption.
-This deviates from the original proposed solution in Trøstrup~and~Hanson~@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
+This deviates from the original proposed solution in Trøstrup~and~Hanson@own-paper, as KV does not support key retrieval, and the overhead of sending a Parquet column to KV each time for decryption and encryption is high.
 By using envelope encryption, OSWS can cache the unwrapped DEKs with a specified TTL to allow quicker decryption.
-This results in a solution with little overhead and ensures column-level access control.
+This results in a solution with lesser overhead and ensures column-level access control.
 
 === Parquet Solver
 
+#todo[Inkluder en paragraf om hvordan vi storer metadata i parquet filen ift. hvordan forskellene er fra den "rigtige" spec og hvordan vi gør det. Hvis vi har overskud ville et diagram nok være nice]
 Parquet Solver handles the cryptographic operations for the Parquet files.
 Important design decisions made here are that it uses Parquet Sharp.
 Parquet Sharp was chosen as it supports PME, but does not support partial decryption/reads of Parquet files.
 This results in the fact that when a Parquet file has to be decrypted, it essentially decrypts and copies over all the columns into a new Parquet file.
 But it does not support copying over the columns which are not supposed to be decrypted.
-As a result, dummy columns are created, and given the setup of OSWS, they are encrypted and copied over into the new Parquet file.
+As a result, dummy columns are created and copied over into the new Parquet file.
 
 This is one of the design choices made that later created more problems than it solved.
 
@@ -188,11 +189,9 @@ There is also no formal concept of _sessions_ as described by Ferraiolo~et~al.@f
 === Key Hierarchy
 
 The KEK sizes are specified within the KV that the admin chooses.
-Due to having student credits available in Azure, which was only available for a low-cost KV, RSA-2048 was used.
-The KEKs are created in OSWS (inside `OSWS.KeyManager/Providers/AzureKeyVaultProvider`), but after that, the KEK never leaves KV again, and are then called by OSWS to wrap and unwrap the DEKs.
-
-For the DEKs OSWS, create these themselves.
-These symmetric AES keys have sizes 128, 192, or 256, and are created during the encryption of Parquet files.
+Azure KV is used to store the KEKs, chosen due to pricing, but is able to be switched out, and RSA-2048 is used for the keys.
+The KEKs are created in OSWS, but after that, the KEK never leaves KV again, and are then called by OSWS to wrap and unwrap the DEKs, which themselves are stored within the Parquet metadata.
+The DEKs are created within OSWS as well, use AES, and, based on the setup, can have sizes 128, 192, or 256, and are specifically created during the encryption flow.
 
 === Administrative Endpoints
 
@@ -203,7 +202,6 @@ Endpoints for admin endpoints are restricted to only users who have the `IsRbacA
 === Frontend Architecture
 
 A frontend for interacting with the endpoints described in @tab:applications-endpoints and @tab:admin-endpoints was built using Typescript-React.
-To quickly create a user-friendly working prototype, #delete[UI components from the open-source project `shadcn` @shadcn were used.] // Virker lidt ligegyldigt ift hvad OSWS er og kan
 A user can log in using Pocket ID, as described in @sec:oidc.
 Here, the user can create credentials to be used for the S3-Compatible API endpoint.
 If the user is an RBAC Admin, they get access to the admin panel for managing roles.
@@ -232,59 +230,39 @@ GRANT admin TO USER alice;
 ```)
 )<listing:peggy>
 
-// DELETE FROM SYSD2 =============================================================================================
-#delete[OSWS consists of the five main components, see~@fig:osws-architecture-overview.
-
-The data flow for a read request is as follows: the client sends an S3 `GetObject` request to the Encryption Gateway, which authenticates via SigV4.
-Then the gateway retrieves the encrypted Parquet file from the Object Store - checking the file cache first.
-The DEKs, which the client has access to, are sent to KV to get unwrapped if they were not found in the DEK cache.
-The "Parquet Solver" then decrypts the available columns and replaces any that cannot be decrypted.
-The new Parquet file is now returned to the client.
-
-For a write request, the client uploads a Parquet file via. `PutObject`.
-The "Parquet Solver" encrypts the columns with newly generated DEKs, wraps them via. KV, and stored the wrapped DEKs inside the Parquet files.
-Columns and permissions are persisted inside the RBAC database.
-
-=== Key Manager
-<sec:osws-keymanager>
-
-The Key Manager provides an abstraction over cryptographic key storage and the relational model.
-
-- `AzureKeyVaultProvider`: Implements `IKeyVaultProvider`.
-  It creates keys (which are defined in `OSWS.Common/Configuration/EncryptionSettings`) in Azure Key Vault, performs the wrap and unwrap of the DEKs server-side, using the algorithm defined within `OSWS.ParquetSolver/Helpers/Cryptography`.
-- `InternalKeyVaultProvider`: Implements `IKeyVaultProvider`.
-  It works the same as `AzureKeyVaultProvider` but runs on OSWS itself.\
-  As long as `IKeyVaultProvider` is implemented together with a key vault provider, which means it supports the following functions: encrypt, decrypt, get key info, and list keys, most providers should be able to be used.
-- `OswsContext`: Implements `DbContext`.
-  Defines the relational schema over PostgreSQL, including users, roles, role assignments, role inheritance, permissions, columns, keys, external identities, and S3 credentials.
-
-=== Shared Libraries
-
-- `OSWS.Models` defines all the DTOs and entities used within the solution.
-- `OSWS.Common` contain classes containing settings for the project, including. `EncryptionSettings`, `CacheSettings`, `S3Settings`, `KeyVaultSettings`, and `RateLimitSettings`.
-  They are bound to `appsettings.json` at startup, and they also include validation logic for the configuration.
-- `OSWS.Library` has utility helpers for AWS credential normalization, S3 metadata translation, HTTP range request parsing, parameter validation, and XML extensions.
 
 === Encryption Flow
 #label("sec:encryption-flow")
+
+#todo[
+  Make into seq. diagram and make it more abstract and not code specific to give an overview of how OSWS handles it.
+  Reference the diagram.
+  Use pintora.
+]
 
 The encryption flow works as follows:
 
 + Client uploads unencrypted Parquet file, via `PUT /s3/{bucket}/{key}`.
 + OSWS creates an RSA-2048 key and is tagged with the uploading user's role.
 + For each column designated for encryption, an AES DEK of specified sizes is generated and encrypted, within `OSWS.ParquetSolver/Helpers/Cryptography`.
-+ Each DEK are then wrapped by using the KV, then serialized, and put into the footer of the Parquet file.
++ Each DEK are then wrapped by using the KV, then serialized, and put into the columns metadata of the Parquet file.
 + The encrypted Parquet file is then written using Parquet Sharp.
 + Parquet file is then sent to the S3-compatible object store.
 + Columns, key IDs, and permissions are persisted in local PostgreSQL.
 
 === Decryption Flow
 
+#todo[
+  Make into seq. diagram and make it more abstract and not code specific to give an overview of how OSWS handles it.
+  Reference the diagram.
+  Use pintora.
+]
+
 The decryption flow works as follows:
 
 + The client requests a Parquet file, via `GET /s3/{bucket}/{key}`.
 + OSWS fetches the encrypted Parquet file, first tries in local cache, then if not found, it goes to S3-compatible object store (see `OSWS.WebApi/Services/Services/S3ObjectFetcher`)
-+ Wrapped DEKs are read from the Parquet footer.
++ Wrapped DEKs are read from the Parquet column metadata.
 + For each wrapped DEK, OSWS checks the in-memory DEK cache.
   On a cache miss, it calls the KV decrypt method to unwrap the DEK and caches the result.
 + The user's effective roles are computed via @listing:effective-roles.
@@ -297,6 +275,8 @@ OSWS exposes three different endpoint groups.
 
 === S3-Compatible Endpoints
 
+#todo[integrate better with the rest of the text]
+
 A subset of S3 required endpoints is implemented to allow for the object store operations.
 These operations can be seen in @tab:s3-compatible-endpoints.
 
@@ -307,37 +287,31 @@ In the future, this should be extended to also allow non-Parquet files to be enc
 
 === Application Endpoints
 
+#todo[integrate better with the rest of the text]
+
 OIDC-protected endpoints for the web frontend.
 See the endpoints in @tab:applications-endpoints.
 
 #include "4-system-design/application-endpoints.typ"
 
-
-]// DELETE SYSD2 all to here, I guess ===========================================================================
-
 == Limitations
 <sec:sys-design:limitations>
 
-// OSWS intends to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
-// But due to how some of these query engines work, only specific ones can work with OSWS and the "fully managed all-in-one cloud platforms" do not work as they would have to whitelist a URL.
-// #todo[Der er jo to issues med fully-managed: 1. vi kan ikke teste pga. whitelist 2. sandsynligvis cacher de filstørrelse. Men vi ved jo reelt ikke om 2 gælder, og vi ved ikke om det  reelt vi virke hvis vi faktisk have whitelistet. Så jeg føler det måskeer lidt forkertat sige "it does not work" - altså nej, det gør det jo ikke, men det er jo kun fordi vi ikke har kunne TESTE det - så jeg sidder og tænker, hvor burde vi diskutere det?]
-// Some changes can be made to bridge how OSWS handles cryptography and how the query engines expect to query, but will be discussed in more detail in~@sec:discussion.
-
-OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
+OSWS set out to provide columnar access control to external query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
 But due to early design decisions, this was not possible.
 As OSWS uses Parquet Sharp and stores cryptographic keys within the metadata of the Parquet files, a few issues appear with some query engines.
 First, Parquet Sharp uses Apache Arrow, which itself supports writing metadata.@ParquetSharp_2026-repo
 This in itself makes sense, as it is possible by looking at e.g. `created_by` to see who created the Parquet file.@apache-arrow
 But as Parquet Sharp needs to write when encrypting the Parquet file, the file is essentially changed with new metadata, and it will no longer be the same Parquet file that the query engine inserted.
 This results in the fact that if the query engine stores metadata for ranges that are incorrect, which break their range requests.
-On top of that, OSWS saves cryptographic-related metadata within the footer, and that is yet another modification.
+On top of that, OSWS saves cryptographic-related metadata within the column metadata, and that is yet another modification.
 As such, for this to work with all query engines, it would have to be ensured that all ranges of data remain the same, also after encryption.
 
-The same issue is probably prevalent on most “fully managed all-in-one cloud platforms”, but it is not possible to test, due to it needing to have a URL whitelisted by the providers to test the OSWS system.
+The same issue is likely prevalent on most “fully managed all-in-one cloud platforms”, but it is not possible to test, due to it needing to have a URL whitelisted by the providers to test the OSWS system.
 But given documentation of e.g. Snowflake, it seems to point towards incompatibility.@snowflake_external_tables@snowflake_external_tables_files
 
 In~@sec:discussion, this will be discussed in more depth and possible solutions to bridge these two design incompatibilities.
 
 Lastly, initially, it was intended to make OSWS return the encrypted columns.
 But due to the limitations in Parquet Sharp, it was not possible, and the current solution is instead to create null/default (dummy) data entries for the column.
-There is an unimplemented method ready to encrypt this dummy data to simulate the idea of returning encrypted data, but it was not implemented due to being redundant since OSWS already had the previously mentioned limitations.
+There is an unimplemented method ready to encrypt this dummy data to simulate the idea of returning encrypted data, but it was not implemented due to being redundant, as OSWS already had the previously mentioned limitations.

@@ -1,4 +1,4 @@
-#import "cmds.typ": todo, speculation
+#import "cmds.typ": todo, speculation, delete
 
 = Background
 
@@ -47,7 +47,7 @@ OpenID Connect (OIDC) is an identity authentication protocol based on the author
 
 Key Management Service (KMS) and Key Vault (KV) are both services used to manage keys.@aws-kms@azure-kv
 KMS is widely used within data storage, and is what AWS use to refer to their system, whereas Azure uses KV.
-This paper will use the term KV, as OSWS has been set up against Azure KV but could have used KMS, see more in~@sec:osws-keymanager.
+This paper will use the term KV, as OSWS has been set up against Azure KV but could have used KMS.
 KV is a way to store cryptographic keys.
 When the cryptographic keys are within the KV, they can no longer be retrieved, and thus if data has to be encrypted/decrypted, it either has to be sent to the KV or envelope encryption can be used, so the KV is responsible for unwrapping the DEK, see more in~@sec:kek:dek.
 
@@ -80,21 +80,48 @@ In the previously written research paper, Parquet files were defined as follows:
   The columns are structured as column chunks, which contain several _data pages_.
   A data page contains a header, which describes information like the size of the page, and following that, the actual values as bytes. 
   The file footer contains metadata that specifies what is stored in the file and where, that is, where a reader should look to find a specific column, or the statistics of a column (e.g. min/max).
-  @app:encrypted-parquet shows a visual representation of a Parquet file that also uses encryption, which will be described later.
-  The left side of the figure shows row groups, columns and data pages, along with their headers.
-  The right side shows the footer of the file, with the file metadata containing metadata on each row group, which in turn contains metadata on the column chunks in that row group.
-  The arrows link information about where to read, such as offsets, to where they point the reader.
+  [...]
+  // @app:encrypted-parquet shows a visual representation of a Parquet file that also uses encryption, which will be described later.
+  // The left side of the figure shows row groups, columns and data pages, along with their headers.
+  // The right side shows the footer of the file, with the file metadata containing metadata on each row group, which in turn contains metadata on the column chunks in that row group.
+  // The arrows link information about where to read, such as offsets, to where they point the reader.
   The objects that hold metadata, like statistics, and structural information, including physical offsets, such as the footer and page headers, are serialized using Apache Thrift@apache-thrift, a language-agnostic serialization framework, and referred to as "Thrift Structs".
-  Essentially, the object that contains the information, for example, a `PageHeader` object (on the left side of~@app:encrypted-parquet) or a `ColumnMetaData` object (on the right side of @app:encrypted-parquet), is serialized into bytes using Thrift, which can then later be restored to the same object.@parquet-modular-encryption-docs)
+  Essentially, the object that contains the information, for example, a `PageHeader` object [...] or a `ColumnMetaData` object [...], is serialized into bytes using Thrift, which can then later be restored to the same object.@parquet-modular-encryption-docs)
   Then, to read a Parquet file, the reader de-serializes the Thrift structures to get the necessary metadata, and then reads the actual data values using the information from the metadata. 
 ]
+
+== PME
+<sec:pme>
+
+Parquet Modular Encryption (PME) is a way to allow granular control of how the Parquet file data and metadata should be encrypted.
+Singular columns can be encrypted, and the footer as well.
+For OSWS, footer encryption is not enabled, as it was outside of the scope due to not containing sensitive column-related data.
+When encryption is used, serialized Thrift structs are encrypted using the given cryptographic key, and the data pages themselves are encrypted as well.
+In OSWS, it is saved as a tuple in the footer, containing a reference to the KEK in KV and the wrapped DEK.
+This allows OSWS to get the DEK unwrapped to then decrypt the column.@parquet-modular-encryption-docs
+#todo[Wrong and move to system design]
+
+#figure(
+  image("3-background/pem_plainfooter.png"),
+  scope: "parent",
+  placement: top,
+  caption: [
+      Illustration of the Parquet file structure using Plaintext Footer. The red key denotes what is encrypted with the column key. From @parquet-modular-encryption-docs. 
+  ],
+  supplement: "Figure",
+  kind: "figure"
+)<fig:encrypted-parquet>
+
+=== Encryption in Parquet
+
+In PME, column encryption is always enabled, but it provides two options for footer encryption; encrypted or plaintext footer. @fig:encrypted-parquet shows a Parquet file with plaintext footer enabled. In plaintext footer mode, a `ColumnCryptoMetaData` struct is added to the each column chunk, which contains the necessary metadata to decrypt the column, such as key ID and algorithm. This is show on the right side of @fig:encrypted-parquet. Notably, each column's statistics are moved to an encrypted `ColumnMetaData` struct, also shown on the right side of @fig:encrypted-parquet. This ensures that no information about the values can be gained without decrypting the columns. Non-sensitive information like the offsets and other metadata is stored as-is without encryption.
 
 == Envelope Encryption (KEK, DEK)
 <sec:kek:dek>
 
 KV does not support retrieving keys, and as a result, OSWS uses envelope encryption.
 This means that during encryption of a column, cryptographic keys for each are generated, called a data-encryption-key (DEK), which is used to encrypt the columns.
-Then, for the single Parquet file, a single key-encryption-key is generated, resulting in less data compared to if each DEK had its own separate KEK within KV.
+Then, for the single Parquet file, a single key-encryption-key (KEK) is generated, resulting in less data compared to if each DEK had its own separate KEK within KV.
 This KEK then encrypts all the DEKs, also called wrapped DEKs, and gets stored in KV.
 The wrapped DEKs are then stored in the metadata for the Parquet file together with a KEK id.\
 When the columns are to be decrypted, the wrapped DEKs are sent to KV to be unwrapped, and the columns can be decrypted.@envelope-encryption
@@ -107,16 +134,6 @@ In OSWS, TTL defines the lifetime of unwrapped DEKs in memory.
 When the TTL is reached, the data will be removed and has to be re-fetched from the KV when needed again.
 OSWS defines two different TTLs as a way to follow general security guidelines, which can be read about in "NIST Special Publication 800-57 Revision 5 Recommendation for Key Management"@Barker_2016, where OSWS uses a TTL of five minutes for DEKs authorized to admins, and the rest have a TTL of 15 minutes.
 
-== PME
-<sec:pme>
-
-Parquet Modular Encryption (PME) is a way to allow granular control of how the Parquet file data and metadata should be encrypted.
-Singular columns can be encrypted, and the footer as well.
-For OSWS, footer encryption is not enabled, #speculation[as it was outside of the scope].
-When encryption is used, serialized Thrift structs are encrypted using the given cryptographic key, and the data pages themselves are encrypted as well.
-In OSWS, it is saved as a tuple in the footer, containing a reference to the KEK in KV and the wrapped DEK.
-This allows OSWS to get the DEK unwrapped to then decrypt the column.@parquet-modular-encryption-docs
-
 == Fully managed all-in-one cloud platforms
 <sec:all-in-one>
 
@@ -124,7 +141,10 @@ In this paper, "Fully managed all-in-one cloud platforms" will be used to define
 Access control within those solutions is managed by the query engines together with the catalogue.
 This means the query engine is trusted to filter out rows that are not permitted, and it then masks or removes those values, which is possible as the platforms themselves manage it.
 
-== Vended Credentials
+== External Query Engines
 
-"Vended credentials" is a way to manage temporary access to files within S3, but the issue is that it can only gate access on the file level, based on limitations in S3.
-This is the way Lakekeeper and Apache Polaris currently manage their access grants.@lakekeeper-vended@polaris-vended
+External query engines reference query engines that operate outside the data layer.
+This is one of the traits of data lakes, as the computations and data are split up.
+These can include PyArrow, PySpark, DuckDB, and DuckLake.
+Here, it is important, as later discussed, to distinguish that DuckLake uses schema on write.
+This means that this specific query engine, once it creates a file, e.g. a Parquet file, it saves the schema and metadata within its internal catalogue, whereas the other solutions use schema on read, and thus ask for the metadata during query time.

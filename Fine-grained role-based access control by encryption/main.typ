@@ -36,36 +36,17 @@
     Data lakes supporting multiple query engines lack fine-grained access control; only "fully managed all-in-one cloud platforms" like Snowflake or Databricks offer it, within their own ecosystem.
 
     // Results
-    We propose Object Store Wrapper Service, a system enforcing column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are S3 compatible.
+    We propose Object Store Wrapper Service (OSWS), a system enforcing column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supporting query engines that are already S3 compatible.
 
     // Contributions
-    Our evaluation shows that OSWS adds an acceptable overhead for tiny to small Parquet files, when using a DEK cache, with warm _p95_ GET latency of _30ms_ for a _5MB_ Parquet file, but with other design choices are more efficient solution is possible.
+    Our evaluation shows that OSWS adds an acceptable overhead for tiny to small Parquet files, when using a DEK cache, with warm _p95_ GET latency of _30ms_ for a _5MB_ Parquet file, but with larger files it becomes unusable, and design choice changes would allow for an efficient solution.
 
     // Implications
-    OSWS demonstrates that encryption-based access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata.
+    OSWS demonstrates that encryption-based access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata; however, those issues are addressable.
   ],
   bibliography: bibliography("refs.bib"),
   // bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
   figure-supplement: "Figure"
-)
-
-#figure(
-  scope: "parent",
-  placement: top,
-  (```txt
-      ___           ___           ___           ___
-     /\  \         /\__\         /\  \         /\__\
-    /::\  \       /:/ _/_       _\:\  \       /:/ _/_
-   /:/\:\  \     /:/ /\  \     /\ \:\  \     /:/ /\  \
-  /:/  \:\  \   /:/ /::\  \   _\:\ \:\  \   /:/ /::\  \
- /:/__/ \:\__\ /:/_/:/\:\__\ /\ \:\ \:\__\ /:/_/:/\:\__\
- \:\  \ /:/  / \:\/:/ /:/  / \:\ \:\/:/  / \:\/:/ /:/  /
-  \:\  /:/  /   \::/ /:/  /   \:\ \::/  /   \::/ /:/  /
-   \:\/:/  /     \/_/:/  /     \:\/:/  /     \/_/:/  /
-    \::/  /        /:/  /       \::/  /        /:/  /
-     \/__/         \/__/         \/__/         \/__/
-
-```) // HÆHÆ `figlet -f isometric2 OSWS`
 )
 
 #include "todo.typ"

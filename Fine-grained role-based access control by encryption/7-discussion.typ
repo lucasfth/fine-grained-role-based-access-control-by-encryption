@@ -1,146 +1,149 @@
 #import "cmds.typ": todo, delete
-
-
 #include "7-discussion/ducklake.typ"
 
 = Discussion
 <sec:discussion>
 
 OSWS set out to provide columnar access control to 3rd party query engines and "fully managed all-in-one cloud platforms" by encrypting columns individually using PME, provided through the Parquet Sharp library.
-Quick summary: During the encryption flow, Parquet Sharp modifies the metadata within, e.g. for the `created_by` value and metadata is added for cryptographic operations, resulting in a changed Parquet file size.
-This eliminates query engines, which use the range modifiers based on their own cached ranges, as their ranged queries hit incorrect parts of the data within the Parquet file and do not take the modified Parquet file metadata into account, and probably also the "fully managed all-in-one cloud platforms", but as mentioned in~@sec:sys-design:limitations, have the same issue though not testable due to missing whitelisted URL.
-This then eliminates DuckLake@ducklake_cached from using OSWS, as it caches the inserted ranges, and also Snowflake.
+During the encryption flow, Parquet Sharp rewrites the entire Parquet file: it decompresses columns, copies them row-group by row-group into a new file, and adds cryptographic metadata such as wrapped DEKs and KEK references, as well as modifying existing metadata, e.g. the `created_by` field.
+The resulting file is larger than the original and no longer byte-compatible with it.
+This single root cause is responsible for the majority of the incompatibilities identified during the final iteration of benchmarking and end-to-end testing, and this section addresses those issues, defines what should have been done instead, and outlines the performance improvements available to a future OSWS system.
 
-Most of these incompatibility issues were from the initial implementation, and first became apparent on the final iteration of designing benchmarking and e2e tests, which, based on the research paper Trøstrup~and~Lucas@own-paper, made sense, but after modifying it to work with the various providers, did not make sense anymore and had unnecessary overhead or created other problems, and as such this section will address those issues, define what should have been done instead, and define which performance improvements can be done in a future OSWS system.
+== Limitations of the Current Design
+<sec:limitations>
 
-== Metadata
-<sec:metadata>
+The core issue introduced by Parquet Sharp is that the written Parquet file no longer matches the file seen by clients.
+Three concrete effects follow from this:
 
-#todo[The original idea for OSWS was to allow 3rd party query engines to decrypt Parquet files themselves locally, while decrypting within OSWS for "fully managed all-in-one cloud platforms".
-This would be achieved by storing key IDs within the footer of the Parquet files, and the query engines could then, through an endpoint in OSWS, request the given key and then decrypt the column locally, and OSWS would do the logic itself.
-As soon as it was identified that this was not possible with KV to retrieve the keys from it, OSWS was changed to use envelope encryption and store the wrapped DEKs, and the KEK reference in the footer, due to it being partly meant for that purpose.] // Skal det ikke være related work???
-#todo[Se om vi skal opdatere med grunden her. Men ville jo argumentere at det allerede står i background. Men omvendt kan man sige det var vel også kun "umuligt" da vi regnede med ikke at bruge envelope enc].
-This means that when clients write files using the API, the Parquet file changes from the original file due to the newly added metadata.
-This does not affect _schema-on-read_ #todo[måske skal dette begreb introduceres] query engines like DuckDB and Spark; when they later fetch the file, they first perform a HEAD request to get the size of the file, to know in what byte range to look for the footer.
-Thus, the reported file size is the _new_ file size with the added metadata. The query engines are then able to perform range requests without any issues.
+- _Modified metadata:_ Cryptographic metadata -- wrapped DEKs, KEK references, and modified fields such as `created_by` -- is appended to the file footer and column metadata, increasing the total file size.
+- _Decompressed columns:_ Parquet Sharp requires columns to be decompressed before they can be copied.
+  #todo[Not entirely correct, we just use default settings, which is uncompressed. It could have been compressed.]
+  The re-serialized file is therefore stored without compression, further inflating the file size relative to the original.
+- _Sequential, full-file processing:_ Parquet Sharp reads the entire file regardless of the byte range a client requests.
+  Keys are unwrapped one by one after the full file has been fetched, and columns are then copied sequentially. Each step waits for the previous to complete.
 
-However, for _schema-on-write_ tools like DuckLake that add a catalogue database, this poses an issue.
-When DuckLake writes a Parquet file, it records the size of the written file and the size of the footer in its catalogue database.
-This means it can later skip the HEAD request and fetch the footer directly.
-For OSWS, however, since the written Parquet file changes, this behaviour is broken.
-When DuckLake later attempts to fetch the footer of the tracked file, the byte ranges are no longer correct.
+Together, these mean that OSWS cannot return the original encrypted bytes for non-authorized columns, cannot serve range requests correctly once file size has changed, and cannot overlap any part of its fetch, decrypt, and response pipeline.
 
-An illustration of this case can be seen in @fig:ducklake-case.
-Here, it is shown what happens when DuckLake writes a file and later attempts to query it.
-The file sizes are chosen for illustrative purposes and are not real sizes. To begin, DuckLake PUTs a $1000$-byte plaintext Parquet file, with a footer length of 500 bytes.
-These sizes are recorded in its catalogue database.
-When OSWS encrypts this file, it re-serializes the file to a new Parquet file with encrypted columns; each of these columns store their encrypted DEK in its metadata, adding file size -- ending in a file size of 2000 bytes.
-This new, encrypted file is then stored in the storage backend. 
+== Impact on Query Engines
+<sec:impact>
 
-When DuckLake later fetches this file, it looks in its own database and sees a file size of 1000 bytes and a footer length of 500 bytes.
-It issues a range request of bytes 500–1000, which it believes constitutes the footer of the file. This range request is propagated to the storage backend
-#todo[Denne sektion skal omskrives til at være mere generisk; det nye metadata er ligegyldigt siden det ikke er med i filen der bliver sendt tilbage, problemet er fundamentalt at omskrive filen]
+The effect of the modified file size differs depending on whether a query engine is _schema-on-read_ or _schema-on-write_.
 
-This breaks many query engines, where they themselves store size metadata, and range requests are not fully functional.
-The solution to this would most likely be to have an internal SQL server running in OSWS.
-This database should contain the following information per Parquet file inserted:
+_Schema-on-read_ engines such as DuckDB and Spark are unaffected by the size change.
+When they fetch a file, they first issue a HEAD request to obtain the current file size, and then perform a range request for the footer using that size.
+Since the HEAD request returns the new encrypted file size, the subsequent range request is correct.
 
-+ Internal File Identifier for footer#footnote[Defined within @parquet-encryption]<footnote:parquet-encryption>
+_Schema-on-write_ tools that maintain a catalogue database, such as DuckLake@ducklake_cached, exhibit broken behaviour.
+When DuckLake writes a Parquet file, it records both the file size and the footer byte range in its catalogue, allowing it to skip the HEAD request on subsequent reads and fetch the footer directly.
+For OSWS, however, the written file changes after the client PUT completes, so the recorded ranges are no longer valid.
+See~@fig:ducklake-case for an illustration of this issue. The following describes it in more detail.
+
+To begin, DuckLake uses its internal Parquet writer "ducklake-writer" to create and PUT a Parquet file of $1000$ bytes. Then, OSWS uses its writer, ParquetSharp, to create an encrypted copy. This is now a whole new Parquet file with encrypted columns, new metadata and possibly different encoding due to the different writers - illustrated by a file size of $2000$ bytes. This file is then stored in the storage backend. 
+
+When DuckLake later queries the file, it issues a range request of bytes 500--1000, being the range it thinks contains the footer.
+
+Since OSWS must fetch the entire file to be able to decrypt, the $2000$ byte file is first fetched, and then decrypted. However, on decryption, the file is again copied into a whole new Parquet file. Now, the values are the same as the original, DuckLake-written $1000$ byte file, but again, since the writers are not the same, the metadata and encoding might be different. This is illustrated with a file size of $1250$ bytes. 
+
+To serve the range request, OSWS then slices _this_ file in the range 500-1000, but given the different file size, this results in a wrong range.
+This is then sent to DuckLake, which throws an error due to not finding the expected data.
+
+This eliminates DuckLake and probably Snowflake from being compatible with OSWS in its current form.
+The root cause is not the specific metadata that is added, but the fundamental incompatibility between recording file ranges at write time and then rewriting the file.
+
+== Proposed Redesign
+<sec:redesign>
+
+The issues described above share a common fix: OSWS should neither store cryptographic metadata inside the Parquet file, nor rewrite the file at all.
+This requires two coordinated changes: an internal metadata store, and a custom Parquet reader and writer using AES CTR.
+
+=== Internal Metadata Store
+<sec:redesign:metadata>
+
+Cryptographic metadata should be stored in an internal SQL database within OSWS rather than in the Parquet file column metadata.
+For each Parquet file, the database should contain:
+
++ Internal file identifier for the footer#footnote[Defined within @parquet-encryption]<footnote:parquet-encryption>
 + Byte range of the start and end index
-+ Internal File Identifier for Column Index@footnote:parquet-encryption
++ Internal file identifier for the column index@footnote:parquet-encryption
 + Wrapped DEK
 + KEK reference
 + Row chunk size
 
-Together with a full range of requests, support for more concurrency can be used.
-When OSWS get a request to read a file, it can start retrieving it.
-In the meantime, it can also go to the local database and find files which match _1_.
-It can then see which keys the client has access to in the RBAC database, and then match the columns with _3_, then for each send _4_ to KV given _5_.
+When a read request arrives, OSWS can retrieve the file from the object store while concurrently querying the local database for matching entries under _1_.
+It can then cross-reference the client's RBAC permissions and match authorized columns against _3_, fetching wrapped DEKs from KV using _5_.
+For range requests, OSWS can use _2_ to determine which columns the requested byte range covers, fetching only those from S3 and requesting only the relevant DEKs — rather than fetching the entire file.
 
-Another improvement is when range requests are given, OSWS can figure out which ranges are related to which columns given _2_ and then retrieve them from S3.
-Meanwhile, it can retrieve the unwrapped DEKs to be ready for decryption.
-Now for decryption, it can use the row chunk size _6_ to be able to decrypt the small part, though only possible if AES CTR is used, more on this in~@sec:encryption-decryption.
+=== Custom Reader and Writer with AES CTR
+<sec:redesign:encryption>
 
-So for metadata, it should only be saved within internal SQL, still, as the current solution relies on SQL, and then the encryption of the columns also needs to change.
+The current dependency on Parquet Sharp should be replaced with a custom Parquet reader and writer that encrypts and decrypts in place using AES CTR.
+AES CTR uses no padding, which means the encrypted form of a column chunk is the same size as the plaintext, preserving all byte offsets and leaving the file size unchanged.
+Since column metadata is no longer embedded in the file, compression can also be left intact, as there is no longer a need to decompress columns before encryption.
 
-== Encryption & Decryption
-<sec:encryption-decryption>
+This enables three concrete improvements over the current design:
 
-Currently, encryption and decryption are handled by Parquet Sharp, which is a .NET package which supports PME.
-Choosing this library was a mistake, as it handles encryption and decryption by reading everything (using cryptographic keys if provided) and copying it into a new Parquet file.
-If no cryptographic key is provided to an encrypted column, it fails.
-So here are two major issues with how it handles cryptography:
++ _Asynchronous key pre-fetching:_ While the encrypted Parquet file is being streamed from the object store, OSWS can concurrently request DEK unwrapping from KV.
+  By the time the file has arrived, the unwrapped keys are ready, removing KV latency from the critical path.
++ _In-place decryption:_ Rather than copying the entire file, only the requested column chunks are decrypted, using AES CTR's preserved byte offsets to locate them directly.
++ _True streaming:_ As soon as a row chunk arrives and its key is ready, decryption can begin immediately, without waiting for the entire file to be fetched first.
 
-+ It reads and copies the entire file regardless of whether a single column has to be decrypted or all of them.
-+ It does not allow for copying over encrypted columns.
+AES CTR does carry known considerations, discussed by Helger~et~al.@Helger2000:
 
-Also, as~@sec:metadata, the size of the Parquet file changes upon encryption, due to PME, and thus creates issues for range requests.
+- No integrity: CTR provides no message integrity, but this can be handled by a MAC layer.
+- Error propagation: Bit flips are localized and do not propagate. This should be addressed at a separate layer.
+- Stateful encryption: Keys must not be reused, which is already enforced by OSWS generating a new DEK per column.
+- Counter reuse: Counter values must not be reused; given per-column key generation, this is satisfied.
 
-All this could be solved by using the implementing a custom reader and writer for the Parquet files, which would use decrypt and encrypt in place, thus fixing _1_, being able to leave non-authorized columns encrypted, thus solving _2_, and not changing metadata and using the solution described in~@sec:metadata.
-Important for the encryption is that AES CTR, which does not use any padding, and thus is also a contributor to not modifying any part of the size of the file.Dworkin_2001
-The issues and things to account for when using CTR have been discussed by~@Helger2000 and include the following:
-
-- No integrity: CTR provides no message integrity, but can be handled by MAC.
-- Error propagation: Bit flips are localized and not propagated. Though this issue should be solved in another layer.
-- Stateful encryption: Important that the system does not reuse keys, but that is already how OSWS operates.
-- Sensitivity to usage errors: Counter-values are not to be reused, but given that OSWS generates a new key for each column, this can be ignored.
-
-To argue even more for why CTR is the correct choice: given a column size in the Parquet file, there are multiple row chunks, which individually are encrypted.
-By knowing the column chunk size and the column size, the OSWS could identify the offset within the range query a client might have sent, only fetching the range from S3 and only decrypting that part, essentially removing a big part of the overhead OSWS currently experiences.
+Additionally, knowing the column chunk size and row chunk size from the internal store allows OSWS to identify the precise offset within a range query, fetch only the relevant bytes from S3, and decrypt only that portion, which substantially reduces the overhead compared to the current full-file fetch.
 
 === Parallelization
+<sec:redesign:parallelization>
 
-When encrypting/decrypting the Parquet file, OSWS currently copies each row group sequentially.
-This should be an "embarrassingly parallelisable" operation, i.e. it could spawn threads to copy a cutout of the row groups to the new Parquet file so the row groups are copied in parallel.
-This should reduce copying overhead drastically, though in light of~@sec:encryption-decryption, it should be a write in place instead of a copy.
-//#delete[But it would require a hand-written or at least modified low-level Parquet library, as this is not something ParquetSharp can do currently -- there is no API for inserting bytes at a specific offset.
-//Offset handling would be the big challenge; how would the library handle where to write row chunks?] // Ikke allerede nævnt i encryption og decryption ovenfor?
-
-== Compression
-<sec:compression>
-
-For Parquet Sharp to copy over a column, it has to decompress the file.
-Here, OSWS thus modifies the file size and just keeps the file decompressed afterwards, when put into S3.
-It could have compressed it again, but it would not have fixed range queries due to modified metadata, etc.
-Here, with the custom reader and writer, it is not even needed to decompress the file.
-OSWS could potentially just keep the current format and still encrypt, etc., on a compressed or non-compressed file and thus leave all the sizes untouched.
+With in-place encryption and decryption, row group processing becomes an embarrassingly parallelisable operation.
+OSWS can spawn threads to process independent row groups concurrently rather than sequentially, which should reduce processing overhead substantially.
+This was not feasible with Parquet Sharp, which provides no API for writing bytes at a specific offset.
 
 == Encrypted Parquet Storage Cache
 <sec:file-cache>
 
 When Parquet files are fetched from S3, they are stored in local storage in their encrypted format.
-But as seen in~@sec:e2e-bench, it has negligible performance improvements on the smaller files, while more significant improvements on larger Parquet files.
-This improvement might even become smaller and less useful with proper range support, as oftentimes only ranges of data are required and not the full file, and will thus be one of the later improvements, which might be tested on a future OSWS system.
-Of course, putting the caching in their unencrypted state and in DRAM cache could enhance performance as well, but would raise issues with handling access control on columns and size issues of the Parquet files, ending up filling up DRAM too quickly.
+As seen in~@sec:e2e-bench, this yields negligible improvement for smaller files, with more significant gains on larger ones.
+With proper range request support, this improvement is likely to diminish further, since most requests will cover only a portion of a file rather than fetching it in full.
+Caching in unencrypted form in DRAM would offer additional performance gains, but it introduces complexity around column-level access control and memory pressure.
+This is therefore considered a later-stage optimization to be evaluated on a future OSWS system.
 
 == Correct Decisions & OSWS Future
 <sec:correct-decisions>
 
-Even though OSWS has a lot of design choices, in light of prior subsections, a lot of correct decisions are believed to have been implemented, and are believed to need to be carried over to a V2 of a similar system.
+Despite the design issues outlined above, several decisions made in the current OSWS implementation are considered sound and should be carried over to a V2 system.
 
 === Envelope Encryption
 <sec:correct-decisions:envelope>
 
-Envelope encryption should still be used, even though it carries an initial significant overhead, but it is partly solved by having the decrypted DEK cache.
-This will also enable easier key rotation for future security improvements.
-A potential alternative would be to implement a fully fledged key vault inside OSWS, eliminating envelope encryption, though this would require many security measures.
+Envelope encryption should be retained.
+While it carries a significant initial overhead, this is substantially mitigated by the decrypted DEK cache.
+It also enables straightforward key rotation, which is an important property for future security improvements.
+A fully fledged key vault inside OSWS would be an alternative that eliminates the KV dependency, but would require significant additional security measures.
 
 === DEK Cache
 <sec:correct-decisions:dek>
 
-The decrypted DEK cache is another one of these design choices which has to be carried over to a new version, given that a KV is used, as seen by @sec:e2e-bench and @sec:microbench, that unwrapping DEKs carries a significant overhead.
+The decrypted DEK cache must be carried over to any future version that uses a KV store.
+As seen in both~@sec:e2e-bench and~@sec:microbench, DEK unwrapping carries a significant overhead, and the cache is the primary mechanism for keeping it off the critical path on repeated accesses.
 
 === RBAC Metadata Storage
 
-The microbenchmarks in @sec:microbench also showed that the impact of authorizing users using the RBAC database was insignificant compared to the overhead of cryptographic operations and network transfer in general. This shows that a PostgreSQL database with the implemented design is a good option for RBAC Metadata Storage in the future.
+The microbenchmarks in~@sec:microbench showed that authorizing users via the RBAC database contributes negligible overhead relative to cryptographic operations and network transfer.
+A PostgreSQL database with the implemented schema is therefore a sound choice for RBAC metadata storage going forward.
 
 === Role Management
 
-Role management (creating and assigning roles, granting permissions) using the implemented "query editor" provided an intuitive and familiar way of managing roles. Though this is just a wrapper over the admin API, and it could be implemented in many ways, this "query editor" is a valid option that could be used in the future.
+Role management — creating and assigning roles, granting permissions — using the implemented query editor provided an intuitive and familiar interface over the admin API.
+While this is a wrapper that could be implemented in many ways, it is a valid option for future versions.
 
 === Known Security Considerations
 
-Two implementation-level security issues are acknowledged in the current OSWS release, within #link("https://github.com/lucasfth/osws/blob/V2026.0.0-alpha/KNOWN_ISSUES.md")[`KNOWN_ISSUES.md`].
+Two implementation-level security issues are acknowledged in the current OSWS release, documented in #link("https://github.com/lucasfth/osws/blob/V2026.0.0-alpha/KNOWN_ISSUES.md")[`KNOWN_ISSUES.md`].
 
 First, S3 credential secret keys are stored in plaintext in the PostgreSQL database, as the SigV4 authentication handler requires the raw key for HMAC derivation.
 If the database is compromised, all S3 credentials become immediately usable.

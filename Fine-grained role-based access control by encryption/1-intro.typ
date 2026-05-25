@@ -9,10 +9,10 @@ _Option 2:_ Provide the external query engines the ability to interact with the 
 So either you choose _Option 2_ and limit who the data can be shared with, based on whether they should only be able to access part of the data, or choose _Option 1_ and limit the query engines the data scientists want to use.
 
 // Complication (Gap) - Explain why the problem hasn’t been fully solved yet
-The Object Stores, such as Amazon S3, being the data lakes, do not understand a granularity finer than file level.
+Object Stores, such as Amazon S3, which can be used as data lakes, do not understand a granularity finer than file level.
 This limitation prevents external access control services from governing access to a finer granularity, such as column-based.
 If, instead, the mechanism for access control was moved within the data lake itself, this could enable fine-grained access control.
-In the research project "Reviewing options for fine-grained Role-Based Access Control in Data Lakes", Trøstrup~and~Lucas@own-paper, the solution called "Object Store Wrapper Service" (OSWS) was proposed.
+In the research project "Reviewing options for fine-grained Role-Based Access Control in Data Lakes", Trøstrup~and~Lucas@own-paper, the solution called Object Store Wrapper Service (OSWS) was proposed.
 
 // Proposal (Innovation) - Propose a new solution that solves (part of) the problem
 The idea of OSWS is to encrypt the Parquet files stored inside the data lake using Parquet Modular Encryption (PME), which supports encrypting each column.
@@ -35,9 +35,12 @@ Is it possible to create a wrapper service that ensures access control on column
 
 This research paper will have the following objectives:
 
+#let objectives = [
 + Create OSWS PoC using an underlying S3-compatible Object Store
 + Ensure OSWS enforces access control using RBAC outward using encryption
 + Make it compatible with "fully managed all-in-one cloud platforms"
 + Make it compatible with query engines
 + Benchmark OSWS to measure the latency it adds.
 + Reflect on design decisions and which alternatives would have been better
+]
+#objectives
