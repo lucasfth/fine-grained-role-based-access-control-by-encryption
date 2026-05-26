@@ -4,6 +4,8 @@
 #import "@preview/cetz:0.4.2"
 #import "@preview/codly:1.3.0"
 
+#import "cmds.typ": new, todo
+
 #let body-end = state("body-end", 0)
 #let show-footer = state("show-footer", true)
 
@@ -17,6 +19,7 @@
     ]
   }
 )
+
 
 #show raw.where(lang: "pintora"): it => pintorita.render(it.text)
 #show link: underline
@@ -40,20 +43,31 @@
   ),
   abstract: [
     // Motivation
-    Data lakes supporting multiple query engines lack fine-grained access control; only "fully managed all-in-one cloud platforms" like Snowflake or Databricks offer it, within their own ecosystem.
+    True separation of compute and data in data lakes comes at the cost of coarse access control.
+    Authorization services like Lakekeeper introduce access control for any query engine, but limit authorization to the file level. 
+    On the other hand, "fully managed all-in-one cloud platforms" like Snowflake offer fine-grained access control only within their own platform -- defeating the purpose of separating compute and data.
 
     // Results
-    We propose Object Store Wrapper Service (OSWS), a system enforcing column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supporting query engines that are already S3 compatible.
+    We propose Object Store Wrapper Service (OSWS), a system that enforces column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are already S3 compatible -- with no modifications.
 
     // Contributions
-    Our evaluation shows that OSWS adds an acceptable overhead for tiny to small Parquet files, when using a DEK cache, with warm _p95_ GET latency of _30ms_ for a _5MB_ Parquet file, but with larger files it becomes unusable, and design choice changes would allow for an efficient solution.
+    Our evaluation, based on e2e test benchmarks, shows that OSWS adds negligible overhead for reading small Parquet files.
+    Benchmarks on a warm DEK cache show a _p95_ GET latency of $30$ms for a $5$MB Parquet file, but with larger Parquet files it becomes unusably slow.
+    We reflect on how these issues could be addressed through different fundamental design changes in OSWS.
 
     // Implications
-    OSWS demonstrates that encryption-based access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata; however, those issues are addressable.
+    OSWS demonstrates that encryption-based fine-grained access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata; however, those issues are addressable.
   ],
-  // note: [Course code: KSXXXX1KU],
   // bibliography: bibliography("refs.bib"),
   figure-supplement: "Figure"
+)
+
+#place(
+  top + right,
+  float: false,
+  dx: 3.5em,
+  dy: -2em,
+  text(9pt, style: "normal", weight: "medium")[STADS: KISPECI1SE]
 )
 
 #include "todo.typ"

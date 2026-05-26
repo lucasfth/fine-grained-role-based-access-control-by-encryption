@@ -13,4 +13,5 @@
 - [?] Seems like there is a lot of repetition in the beginning of @sec:discussion
 - [x] Have to mention AES-CTR in the discussion as it is currently only referred to in the conclusion.
 - [ ] Minor: Fix page numbering in appendix (prolly shouldnt include)
-- [ ] Minor: Course code and shit on front page?
+- [ ] Minor: Course code and shit on front page? I have shitted somsing
+- [ ] Consistency: "Object Store" or "object store"?

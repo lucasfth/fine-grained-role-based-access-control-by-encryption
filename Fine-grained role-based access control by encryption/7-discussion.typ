@@ -1,4 +1,4 @@
-#import "cmds.typ": todo, delete
+#import "cmds.typ": todo, delete, new
 #include "7-discussion/ducklake.typ"
 
 = Discussion
@@ -12,19 +12,33 @@ This single root cause is responsible for the majority of the incompatibilities 
 == Limitations of the Current Design
 <sec:limitations>
 
-The core issue introduced by Parquet Sharp is that the written Parquet file no longer matches the file seen by clients.
+#new[
+The core issue of the current solution stems from the fact that the Parquet files put into OSWS are copied from the original Parquet file into a new one, instead of modifying the original.
+When the Parquet file is copied, using Parquet Sharp, the metadata in the new Parquet file is different from the original one; incl. fields such as `created_by`.
+So when schema-on-write external query engines put a file into OSWS they are not able to query it again, as the file is not the same as they inserted.
+
+The other issue with Parquet Sharp and the way OSWS stores the cryptographic metadata is that to decrypt the Parquet file, the full one first has to be fetched, even if the client only requests a specific range.
+When it has been fetched, the DEKs can be unwrapped, and now each column can be decrypted and copied over sequentially, and if no access, a dummy column has to be inserted in its place.
+Essentially OSWS has to wait for each step to continue.
+
+This results in OSWS not being able to return the original file, and the encrypted bytes for when a client is not authorized has to be replaced, but also that a lot of operations are not possible to overlap in its fetch, decrypt, and response pipeline.
+]
+// The core issue introduced by Parquet Sharp is that the written Parquet file no longer matches the file seen by clients.
 // The core issue introduced by the encryption and decryption flow is re-writing of the originally written Parquet file. This means that the file the clients write is not the same file they get returned byte-for-byte when later fetching it, even with full access.
-#todo[Er det reelt ParquetSharp der er problemet her, eller vores valg? ved godt ParqeutSharp ikke supporter det vi gerne vil - men spørgsmåle er om det ikke stadig er vores valg]
-Three concrete effects follow from this:
+// #todo[Er det reelt ParquetSharp der er problemet her, eller vores valg? ved godt ParqeutSharp ikke supporter det vi gerne vil - men spørgsmåle er om det ikke stadig er vores valg]
+// Three concrete effects follow from this:
 
-- _Modified metadata:_ Cryptographic metadata -- wrapped DEKs, KEK references, and modified fields such as `created_by` -- is appended to the file footer and column metadata, increasing the total file size.
-- _Decompressed columns:_ Parquet Sharp requires columns to be decompressed before they can be copied.
-  #todo[Not entirely correct, we just use default settings, which is uncompressed. It could have been compressed.]
-  The re-serialized file is therefore stored without compression, further inflating the file size relative to the original.
-- _Sequential, full-file processing:_ Parquet Sharp reads the entire file regardless of the byte range a client requests.
-  Keys are unwrapped one by one after the full file has been fetched, and columns are then copied sequentially. Each step waits for the previous to complete.
+// - _Modified metadata:_ Cryptographic metadata -- wrapped DEKs, KEK references, and modified fields such as `created_by` -- is appended to the file footer and column metadata, increasing the total file size.
+// #delete[
+// - _Decompressed columns:_ Parquet Sharp requires columns to be decompressed before they can be copied.
+//   #todo[Not entirely correct, we just use default settings, which is uncompressed. It could have been compressed.]
+//   The re-serialized file is therefore stored without compression, further inflating the file size relative to the original.
+// ]
+// - _Sequential, full-file processing:_ Parquet Sharp reads the entire file regardless of the byte range a client requests.
+//   Keys are unwrapped one by one after the full file has been fetched, and columns are then copied sequentially. Each step waits for the previous to complete.
 
-Together, these mean that OSWS cannot return the original encrypted bytes for non-authorized columns, cannot serve range requests correctly once file size has changed, and cannot overlap any part of its fetch, decrypt, and response pipeline.
+// Together, these mean that OSWS cannot return the original encrypted bytes for non-authorized columns, cannot serve range requests correctly once file size has changed, and cannot overlap any part of its fetch, decrypt, and response pipeline.
+
 
 == Impact on Query Engines
 <sec:impact>

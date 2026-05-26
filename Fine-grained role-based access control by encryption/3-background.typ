@@ -98,11 +98,7 @@ In the previously written research paper, Parquet files were defined as follows:
 
 Parquet Modular Encryption (PME) is a way to allow granular control of how the Parquet file data and metadata should be encrypted.
 Singular columns can be encrypted, and the footer as well.
-For OSWS, footer encryption is not enabled, as it was outside of the scope due to not containing sensitive column-related data.
 When encryption is used, serialized Thrift structs are encrypted using the given cryptographic key, and the data pages themselves are encrypted as well.
-In OSWS, it is saved as a tuple in the footer, containing a reference to the KEK in KV and the wrapped DEK.
-This allows OSWS to get the DEK unwrapped to then decrypt the column.@parquet-modular-encryption-docs
-#todo[Wrong and move to system design]
 
 #figure(
   image("3-background/pem_plainfooter.png"),
@@ -146,9 +142,16 @@ This means the query engine is trusted to filter out rows that are not permitted
 
 == External Query Engines
 
-External query engines reference query engines that operate outside the data layer.
-This is one of the traits of data lakes, as compute and data are separated.
-These can include PyArrow, PySpark, DuckDB, #todo[and DuckLake].
-// teknisk set er DuckLake ikke en query engine. den bruger DuckDB som query engine. Der skal vi nok lige overveje hvordan vi refererer til det
-Here, it is important, as later discussed, to distinguish that DuckLake uses schema on write.
-This means that this specific query engine, once it creates a file, e.g. a Parquet file, it saves the schema and metadata within its internal catalogue, whereas the other solutions use schema on read, and thus ask for the metadata during query time.
+External query engines reference query engines that operate separately from the data lake. 
+This is one of the key features of data lakes; the compute and data layers can be separated.
+Compared to a "fully managed all-in-one cloud platform", the query engine is not managed by platforms and can be any with the ability to fetch Parquet files from an S3-compatible API and perform operations on these.
+This means the query engine cannot be trusted to filter out unauthorized data, as with "fully managed all-in-one cloud platforms".
+Examples of these tools include PyArrow, Spark, and DuckDB.
+
+Lakehouse solutions such as DuckLake also exist, but are not just a basic query engine.
+Besides bringing a query engine, it also provides a catalogue and other features, such as time-travelling.
+The catalogue is the main difference, providing a way to store metadata about the files, including their size, location, etc, and makes use of "schema on write"; it stores the schema of the file when it writes it.
+
+In this thesis, both lakehouse and normal query engines will be referred to as external query engines, as their overall use in the context of OSWS is the same.
+The important distinction is that one infers the schema when they read, e.g. DuckDB, while the other, e.g. DuckLake, stores it on write, and thus does not need to infer it later.
+This has a major impact on how they interact with OSWS and will be addressed later.

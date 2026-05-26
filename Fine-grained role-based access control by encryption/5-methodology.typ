@@ -89,8 +89,12 @@ The reasoning for this is that OSWS implements its own caching layer and uses a 
 OSWS also encrypts each column, resulting in the sizes of the Parquet files having a lot of significance for the end throughput, and Warp does not vary its Parquet file size.
 This results in inherently different throughputs and numbers, which are hard to compare OSWS against anything else.
 
-Lastly, OSWS, as mentioned, does not support proper #todo[range requests] /* Er det reelt blevet nævnt? */, and it is then apparent that S3 will perform even better for ranged requests, where, regardless of the range or full file request, S3 will perform close to the same.#footnote[A solution to this is proposed within @sec:discussion.]
-#todo[hvad mener vi reelt her? At performance ikke ændrer sig for range request eller ej for OSWS?]
+#new[
+Lastly, OSWS, as mentioned, in~@sec:sys-design:decryption, does not use proper range requests when it queries S3, and as a result is will obviously perform worse for ranged requests compared to direct S3 ones.#footnote[A solution to this is proposed within @sec:discussion.]
+]
+
+// Lastly, OSWS, as mentioned, does not support proper #todo[range requests] /* Er det reelt blevet nævnt? */, and it is then apparent that S3 will perform even better for ranged requests, where, regardless of the range or full file request, S3 will perform close to the same.#footnote[A solution to this is proposed within @sec:discussion.]
+// #todo[hvad mener vi reelt her? At performance ikke ændrer sig for range request eller ej for OSWS?]
 
 Python scripts will then run Parquet puts and gets against the following setups:
 

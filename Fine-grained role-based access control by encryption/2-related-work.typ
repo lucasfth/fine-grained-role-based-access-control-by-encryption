@@ -23,7 +23,7 @@ Though this is an issue that could be removed in the future, it will require OSW
 == Membrane: A Cryptographic Access Control System for  Data Lakes 
 
 Membrane, referenced in Trøstrup~and~Lucas@own-paper, is a proposal to ensure FGAC at the cell level and encryption-at-rest in data lakes using a custom format, Kumar~et~al.@kumaretal2025membraneAC, thus resembling what OSWS sets out to do.
-Besides making the original client responsible for handling the original encryption keys to provide access to others, it also forces the query engine to #todo[download the whole file] /* Sure about that?? */ to decrypt it with the provided view on its machine.
+Besides making the original client responsible for handling the original encryption keys to provide access to others, it also forces the query engine to download the whole table to decrypt it with the provided view on its machine.
 The advantage of this is that once the query engine has the data, given the view, they only have to make computations on the relevant data.
 This differs from OSWS, where it actually runs computations on all data, but instead only gives the query engine the finalized data.
 The computation volume for Membrane is therefore correlated to the size of the view size, whereas for OSWS, it is related to the file size, but OSWS supports existing query engines which can interact with S3.
