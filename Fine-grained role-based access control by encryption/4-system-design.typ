@@ -58,7 +58,7 @@ For testing purposes it was tied to the user's first role, but should have been 
 #todo[TRØLLE DO SOMSING]
 Then the Parquet solver is given the file and role, so it can generate new DEKs per column and a KEK for the Parquet file.
 The RBAC store is updated with the new columns and key references, and the file is encrypted afterwards.
-It also handles wrapping the keys initially so the wrapped DEKs can be put into the metadata, and KEK is given to the key manager to insert into KV.
+It also handles wrapping the keys initially so the wrapped DEKs can be put into the metadata, and the KEK is given to the key manager to insert into KV.
 
 This allows OSWS to ensure fine-grained role-based access control in data lakes, but of course, there are more in-depth design choices that have been made to make this work, both for better and worse.
 
@@ -72,6 +72,16 @@ This allows OSWS to ensure fine-grained role-based access control in data lakes,
 
 An Entity Relationship describing the database design can be seen in @fig:er-diagram.
 The database is mostly used for RBAC metadata; however, it also stores credentials used for AWS Signature V4 request signing, and external identity information from the OpenID Provider(s).
+
+=== RBAC Metadata
+
+In~@sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_.
+OSWS implements RBAC mostly following this, but it differs in a few ways.
+In~@fig:er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
+`User` and `Role` have a many-to-many relationship through `RoleAssignment`.
+Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`.
+The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is, however, no concept of _operations_, only whether or not access is granted. 
+There is also no formal concept of _sessions_ as described by Ferraiolo~et~al.@ferraiolo1992rbac; however, when a user is authenticated through their S3 Credential, their assigned roles are loaded. In this way, it can be seen as an activation of all the users assigned roles.
 
 === Role Hierarchy
 
@@ -119,9 +129,9 @@ There are two tiers to the caching system used within OSWS with the intention of
 
 === Encrypted File Cache
 
-Given the configuration of OSWS, the Parquet files fetched from the object store can be cached.
-It uses the LRU (Least Recently Used) policy to cache the encrypted Parquet files on the local file system.
-They are keyed with `SHA256(bucket::key)`, see `OSWS.ParquetSolver/Helpers/EncryptedFileCache.cs`.
+Given the configuration of OSWS, the Parquet files fetched from the Object Store can be cached.
+It uses the Least Recently Used (LRU) policy to cache the encrypted Parquet files on the local file system.
+Each Parquet file is then keyed with a tuple of the bucket name and its key, meaning that it uses the bucket name and the full path and file name to save the Parquet file - reflecting how S3 handles its internal naming.
 
 === DEK Cache
 
@@ -149,9 +159,12 @@ As a result, dummy columns are created and copied over into the new Parquet file
 This is one of the design choices made that later created more problems than it solved.
 
 === Authentication
+<sec:sys-design:authentication>
 
 Due to S3 requiring signage, the calls from the clients going to OSWS are signed as well, and as a result, OSWS cannot reuse the signature and encrypt the Parquet columns.
 Internal authentications were therefore needed, and OSWS then has its own signature for S3.
+
+#todo[Give some love. Skal den også delvist merges med Application Endpoints?? Nej Lukas bare nej. Ejj kan du ikke engang huske hvordan man staver mit navn 😢]
 
 === AWS Signature V4 (S3 API)
 <sec:sigv4>
@@ -177,14 +190,8 @@ On the first login, the `api/me` endpoint triggers JIT provisioning, and a new `
 Subsequent logins will synchronize the OIDC provider's claims.
 
 == RBAC
+#todo[RBAC ting er blevet rykket, hvad skal dette afsnit være? nok rykkes rundt på nogle ting]
 
-In~@sec:background-rbac, RBAC is defined to consist of: _users_, _roles_, _permissions_, _operations_, _objects_ and _sessions_.
-OSWS implements RBAC mostly following this, but it differs in a few ways.
-In~@fig:er-diagram, the core RBAC entities are shown: the tables `User`, `Role`, `RoleAssignment`, `RoleInheritance`, `Column`, and `Permission`.
-`User` and `Role` have a many-to-many relationship through `RoleAssignment`.
-Likewise, `Role` and `Column` have a many-to-many relationship through `Permission`s.
-The `Column` table can be seen as the _object_ of Core RBAC, as it is currently the only secured object to which access is controlled. There is, however, no concept of _operations_, only whether or not access is granted. 
-There is also no formal concept of _sessions_ as described by Ferraiolo~et~al.@ferraiolo1992rbac; however, when a user is authenticated through their S3 Credential, their assigned roles are loaded. In this way, it can be seen as an activation of all the users assigned roles.
 
 === Key Hierarchy
 
@@ -200,6 +207,7 @@ Endpoints for admin endpoints are restricted to only users who have the `IsRbacA
 #include "4-system-design/administrative-endpoints.typ"
 
 === Frontend Architecture
+<sec:sys-design:fe>
 
 A frontend for interacting with the endpoints described in @tab:applications-endpoints and @tab:admin-endpoints was built using Typescript-React.
 A user can log in using Pocket ID, as described in @sec:oidc.
@@ -234,65 +242,66 @@ GRANT admin TO USER alice;
 === Encryption Flow
 #label("sec:encryption-flow")
 
-#todo[
-  Make into seq. diagram and make it more abstract and not code specific to give an overview of how OSWS handles it.
-  Reference the diagram.
-  Use pintora.
-]
+#import "4-system-design/crypto-flow.typ": encryptionFlow
+#encryptionFlow
 
-The encryption flow works as follows:
+@fig:encryptionflow shows the flow of how encryption works in OSWS, from the client's PUT call to the client receiving an acknowledgement that it has been completed.
+It follows the given flow:
 
-+ Client uploads unencrypted Parquet file, via `PUT /s3/{bucket}/{key}`.
-+ OSWS creates an RSA-2048 key and is tagged with the uploading user's role.
-+ For each column designated for encryption, an AES DEK of specified sizes is generated and encrypted, within `OSWS.ParquetSolver/Helpers/Cryptography`.
-+ Each DEK are then wrapped by using the KV, then serialized, and put into the columns metadata of the Parquet file.
-+ The encrypted Parquet file is then written using Parquet Sharp.
-+ Parquet file is then sent to the S3-compatible object store.
-+ Columns, key IDs, and permissions are persisted in local PostgreSQL.
++ Client uploads an unencrypted Parquet file to OSWS - through the encryption gateway
++ OSWS checks the client credentials and resolves their first role
++ OSWS encryption then hands over the work to the Parquet solver
++ OSWS Parquet solver generates a KEK, submits it to KV to get a reference ID
++ OSWS generates a DEK per column
++ All the DEKs are sent to KV to get wrapped
++ The Parquet file columns are encrypted and copied over to the new Parquet file, and the KEK ID and wrapped DEKs are saved within the Parquet metadata
++ The OSWS Parquet solver hands the work back to the OSWS Encryption gateway with relevant metadata
++ The OSWS Encryption gateway then persists the RBAC metadata
++ OSWS sends back the acknowledgement that it has been inserted
 
 === Decryption Flow
 
-#todo[
-  Make into seq. diagram and make it more abstract and not code specific to give an overview of how OSWS handles it.
-  Reference the diagram.
-  Use pintora.
-]
+#import "4-system-design/crypto-flow.typ": decryptionFlow
+#decryptionFlow
 
-The decryption flow works as follows:
+@fig:decryptionflow shows the flow of how decryption works in OSWS, from the client's GET call to them receiving a Parquet file back.
+It follows the given flow:
 
-+ The client requests a Parquet file, via `GET /s3/{bucket}/{key}`.
-+ OSWS fetches the encrypted Parquet file, first tries in local cache, then if not found, it goes to S3-compatible object store (see `OSWS.WebApi/Services/Services/S3ObjectFetcher`)
-+ Wrapped DEKs are read from the Parquet column metadata.
-+ For each wrapped DEK, OSWS checks the in-memory DEK cache.
-  On a cache miss, it calls the KV decrypt method to unwrap the DEK and caches the result.
-+ The user's effective roles are computed via @listing:effective-roles.
-+ The permitted columns are now decrypted, while the others are replaced by dummy columns#footnote[Due to limitations in Parquet Sharp, it is not possible to leave the encrypted column alone, and thus has to be replaced.]
-+ The decrypted Parquet stream is returned to the client.
-
++ Client requests a Parquet file to OSWS - through the encryption gateway
++ OSWS checks the client credentials and resolves which roles they have access to
++ OSWS then fetches the Parquet file from S3 - or from the disk cache if available
++ OSWS then starts to work on decrypting the file, given the allowed columns
+  + For each authorized column, it goes to KV to get the related DEK unwrapped - if not already present in the in-memory DEK cache
+  + The columns are now decrypted and copied into a new Parquet file, and for the ones where the unwrapped DEK is not there, a dummy column will be inserted in its place
++ The Parquet file is now created, and the requested range/whole file can now be returned to the client
+  
 == API
 
 OSWS exposes three different endpoint groups.
+These are either related to:
+
+- Being S3 compliant and providing the endpoints to interact with the data lake
+- Managing authentication, which, when using S3, is done by using IAM@iam
+- Managing RBAC and access control, described in~@sec:sys-design:fe
 
 === S3-Compatible Endpoints
 
-#todo[integrate better with the rest of the text]
-
-A subset of S3 required endpoints is implemented to allow for the object store operations.
-These operations can be seen in @tab:s3-compatible-endpoints.
-
 #include "4-system-design/s3-compatible-endpoints.typ"
+
+For the S3 endpoints, only a subset of endpoints has been implemented to ensure Object Store operations would work and be S3 compatible.
+The endpoints can be seen in~@tab:s3-compatible-endpoints.
+This enables listing what is in the Object Store, and also the create, update, and delete operations.
 
 Currently, non-Parquet files pass through the encryption step, and the endpoints defined are only to allow operations made by most query engines, and thus suffice for making an MVP.
 In the future, this should be extended to also allow non-Parquet files to be encrypted and then include the KEK reference within the Parquet file referencing it, and the endpoints should also be extended.
 
 === Application Endpoints
 
-#todo[integrate better with the rest of the text]
-
-OIDC-protected endpoints for the web frontend.
-See the endpoints in @tab:applications-endpoints.
-
 #include "4-system-design/application-endpoints.typ"
+
+Usually, when using S3, the AWS IAM solution is used.
+But due to the previously mentioned rerouting limitation and OSWS signage, in~@sec:sys-design:authentication, it has to provide endpoints for the clients to use to authenticate against.
+The endpoints provided can be seen in~@tab:applications-endpoints, and include listing the existing credentials, creating new ones, and deleting them.
 
 == Limitations
 <sec:sys-design:limitations>

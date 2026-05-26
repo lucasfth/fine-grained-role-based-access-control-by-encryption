@@ -40,7 +40,10 @@ In Trøstrup~and~Lucas@own-paper, Role-Based Access Control (RBAC) was defined a
 
 == OIDC
 
-OpenID Connect (OIDC) is an identity authentication protocol based on the authorization OAuth 2.0 framework.@what-is-oidc It provides developers with a standardized, simple way to verify the identity of users trying to access web applications. It allows users to authenticate using their existing accounts previously registered with an OpenID Provider, such as Microsoft Entra ID@what-is-entra or PocketID@what-is-pocketid, which the web application can then contact to verify their identity. Thus, it eliminates the need to implement an authentication layer in the web application.
+OpenID Connect (OIDC) is an identity authentication protocol based on the authorization OAuth 2.0 framework.@what-is-oidc
+It provides developers with a standardized, simple way to verify the identity of users trying to access web applications.
+It allows users to authenticate using their existing accounts previously registered with an OpenID Provider, such as Microsoft Entra ID@what-is-entra or PocketID@what-is-pocketid, which the web application can then contact to verify their identity.
+Thus, it eliminates the need to implement an authentication layer in the web application.
 
 == KMS/KV
 <sec:kv>
@@ -144,7 +147,8 @@ This means the query engine is trusted to filter out rows that are not permitted
 == External Query Engines
 
 External query engines reference query engines that operate outside the data layer.
-This is one of the traits of data lakes, as the computations and data are split up.
-These can include PyArrow, PySpark, DuckDB, and DuckLake.
+This is one of the traits of data lakes, as compute and data are separated.
+These can include PyArrow, PySpark, DuckDB, #todo[and DuckLake].
+// teknisk set er DuckLake ikke en query engine. den bruger DuckDB som query engine. Der skal vi nok lige overveje hvordan vi refererer til det
 Here, it is important, as later discussed, to distinguish that DuckLake uses schema on write.
 This means that this specific query engine, once it creates a file, e.g. a Parquet file, it saves the schema and metadata within its internal catalogue, whereas the other solutions use schema on read, and thus ask for the metadata during query time.

@@ -22,7 +22,7 @@ Thus, regardless of where to read the data from, it will have been ensured that 
 
 // Contribution
 In this thesis, a PoC of OSWS will be created to prove that a system supporting third-party query engines, such as DuckDB, without modifications, can use OSWS, though, as quickly realized, interoperability with the "fully managed all-in-one cloud platforms" is partly a job that the respective companies have to allow.
-After developing the PoC and coupling a query engine to it, experiments will be conducted to evaluate the performance and #todo[security of the system], compared to available solutions.
+After developing the PoC and coupling a query engine to it, experiments will be conducted to evaluate the performance and #todo[security of the system] /* Bare nakkes?? */, compared to available solutions.
 Metrics include end-to-end read and write latency, as well as the cryptographic overhead, in relation to the size of the Parquet file, introduced by the OSWS.
 Experiments will use data sizes representative of realistic data sizes.
 

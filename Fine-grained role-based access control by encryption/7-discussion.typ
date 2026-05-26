@@ -13,6 +13,8 @@ This single root cause is responsible for the majority of the incompatibilities 
 <sec:limitations>
 
 The core issue introduced by Parquet Sharp is that the written Parquet file no longer matches the file seen by clients.
+// The core issue introduced by the encryption and decryption flow is re-writing of the originally written Parquet file. This means that the file the clients write is not the same file they get returned byte-for-byte when later fetching it, even with full access.
+#todo[Er det reelt ParquetSharp der er problemet her, eller vores valg? ved godt ParqeutSharp ikke supporter det vi gerne vil - men spørgsmåle er om det ikke stadig er vores valg]
 Three concrete effects follow from this:
 
 - _Modified metadata:_ Cryptographic metadata -- wrapped DEKs, KEK references, and modified fields such as `created_by` -- is appended to the file footer and column metadata, increasing the total file size.

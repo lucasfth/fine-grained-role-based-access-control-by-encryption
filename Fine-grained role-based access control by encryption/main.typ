@@ -3,14 +3,19 @@
 #import "@preview/pintorita:0.1.4"
 #import "@preview/cetz:0.4.2"
 #import "@preview/codly:1.3.0"
-#import "cmds.typ": todo
+
+#let body-end = state("body-end", 0)
+#let show-footer = state("show-footer", true)
 
 #set page(
-  footer: context [
-    #set align(right)
-    #set text(8pt)
-    Page #counter(page).display("1 of 1", both: true)
-  ]
+  footer: context {
+    if show-footer.get() [
+      #set align(right)
+      #set text(8pt)
+      // Page #counter(page).display("1 of 1", both: true)
+      Page #counter(page).display() of #body-end.final()
+    ]
+  }
 )
 
 #show raw.where(lang: "pintora"): it => pintorita.render(it.text)
@@ -22,12 +27,14 @@
       name: "Andreas Severin Hauch Trøstrup",
       department: [Computer Science],
       organization: [IT University of Copenhagen],
+      location: [Copenhagen, Denmark],
       email: "atro@itu.dk"
     ),
     (
       name: "Lucas Frey Torres Hanson",
       department: [Computer Science],
       organization: [IT University of Copenhagen],
+      location: [Copenhagen, Denmark],
       email: "luha@itu.dk"
     )
   ),
@@ -44,8 +51,8 @@
     // Implications
     OSWS demonstrates that encryption-based access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata; however, those issues are addressable.
   ],
-  bibliography: bibliography("refs.bib"),
-  // bibliography: bibliography("refs.bib", style: "harvard-cite-them-right"),
+  // note: [Course code: KSXXXX1KU],
+  // bibliography: bibliography("refs.bib"),
   figure-supplement: "Figure"
 )
 
@@ -58,7 +65,11 @@
 #include "6-results.typ"
 #include "7-discussion.typ"
 #include "8-conclusion.typ"
+
+#show-footer.update(false)
+#context body-end.update(counter(page).get().first())
+
+#bibliography("refs.bib", style: "ieee")
+
 #pagebreak()
 #include "9-appendix.typ"
-#pagebreak()
-

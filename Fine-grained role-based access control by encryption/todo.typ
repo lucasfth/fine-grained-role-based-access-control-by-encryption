@@ -9,7 +9,8 @@
 - [x] Why is footer encryption not enabled.
 - [x] Fix the not-defined times for how slow it is
 - [x] Lucas uses p99 for micro stuff. Use p95 instead to match e2e
-- [ ] Include figure for parquet with unencrypted footer in appendix
 - [x] LRU has to be mentioned in system design
 - [?] Seems like there is a lot of repetition in the beginning of @sec:discussion
 - [x] Have to mention AES-CTR in the discussion as it is currently only referred to in the conclusion.
+- [ ] Minor: Fix page numbering in appendix (prolly shouldnt include)
+- [ ] Minor: Course code and shit on front page?
