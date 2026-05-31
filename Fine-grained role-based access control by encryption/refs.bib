@@ -173,6 +173,9 @@
   language={en}
 }
 
+@book{Barker_2020, address={Gaithersburg, MD}, title={Recommendation for key management: part 1 - general}, url={https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf}, DOI={10.6028/NIST.SP.800-57pt1r5}, number={NIST SP 800-57pt1r5}, institution={National Institute of Standards and Technology}, author={Barker, Elaine}, year={2020}, month=may, pages={NIST SP 800-57pt1r5} }
+
+
 @misc{envelope-encryption,
   url={https://docs.cloud.google.com/kms/docs/envelope-encryption},
   journal={Google Cloud Documentation},
@@ -391,4 +394,81 @@ keywords = {Role-based access control, access control, authorization management,
 @misc{iam,
   titel={What is IAM},
   url={https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html},
+}
+
+@misc{Fazzani,
+  author={Haikel Fazzani},
+  title={Understanding AES Encryption Modes: AES-GCM, AES-CBC, AES-CTR},
+  abstractNote={AES (Advanced Encryption Standard) is a widely used encryption algorithm to secure data. It operates in different modes, such as AES-GCM, AES-CBC, AES-CTR, AES-ECB, AES-CFB, and AES-OFB, each with unique characteristics. This blog post explains these modes in simple terms, compares them, and provides easy-to-understand JavaScript code examples using the Web Crypto API where applicable. Each section includes an image to visually illustrate the mode’s operation and a table summarizing key features, pros, and cons.},
+  url={https://www.haikel-fazzani.eu.org/blog/post/aes-encryption-modes-gcm-cbc-ctr},
+  year={2024},
+  month=aug
+}
+
+@misc{structured-semistructured,
+  url={https://www.snowflake.com/content/snowflake-site/global/en/fundamentals/understanding-structured-semi-structured-and-unstructured-data},
+  abstractNote={Explore the fundamental differences between structured, semi-structured and unstructured data, and how to process, store and analyze these types efficiently.},
+  language={en}
+}
+
+@techreport{nist-block-ciphers,
+   author = {Morris Dworkin},
+   title = {Recommendation for Block Cipher Modes of Operation: Methods and Techniques},
+   institution = {National Institute of Standards and Technology},
+   number = {SP 800-38A},
+   year = {2001},
+   url = {https://csrc.nist.gov/pubs/sp/800/38/a/final}
+ }
+ 
+@techreport{nist-cgm,
+ author = {Morris Dworkin},
+ title = {Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC},
+ institution = {National Institute of Standards and Technology},
+ number = {SP 800-38D},
+ year = {2007},
+ url = {https://csrc.nist.gov/pubs/sp/800/38/d/final}
+}
+
+@misc{pme-enc-modes-wrong,
+  url={https://www.snowflake.com/content/snowflake-site/global/en/fundamentals/understanding-structured-semi-structured-and-unstructured-data},
+  abstractNote={Explore the fundamental differences between structured, semi-structured and unstructured data, and how to process, store and analyze these types efficiently.},
+  language={en}
+}
+
+
+@misc{ducklake,
+  title={Introduction},
+  url={https://ducklake.select/docs/stable/specification/introduction.html},
+  abstractNote={This page contains the specification for the DuckLake format, version 0.3. Building Blocks DuckLake requires two main components: Catalog database: DuckLake requires a database that supports transactions and primary key constraints as defined by the SQL-92 standard. Data storage: The DuckLake specification requires a storage component for storing the data in Parquet format. Catalog Database DuckLake uses SQL tables and queries to define the catalog information (metadata, statistics, etc.). This specification explains the schema and semantics of these: Data Types Queries Tables If you are reading this specification for the first time, we recommend starting with the “Queries” page, which…},
+  journal={DuckLake},
+  author={User, GitHub},
+  language={en}
+}
+
+@misc{parquetsharp,
+  url={https://github.com/G-Research/ParquetSharp/releases},
+  abstractNote={ParquetSharp is a .NET library for reading and writing Apache Parquet files. - G-Research/ParquetSharp},
+  journal={GitHub},
+  language={en}
+}
+
+@techreport{rsa-rfc8017,
+   author = {Kathleen Moriarty and Burt Kaliski and Jakob Jonsson and Andreas Rusch},
+   title = {PKCS \#1: RSA Cryptography Specifications Version 2.2},
+   institution = {IETF},
+   number = {RFC 8017},
+   year = {2016},
+   url = {https://datatracker.ietf.org/doc/html/rfc8017}
+}
+
+@inproceedings{snowflake-sigmod, address={San Francisco California USA}, title={The Snowflake Elastic Data Warehouse}, ISBN={978-1-4503-3531-7}, url={https://dl.acm.org/doi/10.1145/2882903.2903741}, DOI={10.1145/2882903.2903741}, booktitle={Proceedings of the 2016 International Conference on Management of Data}, publisher={ACM}, author={Dageville, Benoit and Cruanes, Thierry and Zukowski, Marcin and Antonov, Vadim and Avanes, Artin and Bock, Jon and Claybaugh, Jonathan and Engovatov, Daniel and Hentschel, Martin and Huang, Jiansheng and Lee, Allison W. and Motivala, Ashish and Munir, Abdul Q. and Pelley, Steven and Povinec, Peter and Rahn, Greg and Triantafyllis, Spyridon and Unterbrunner, Philipp}, year={2016}, pages={215–226}, language={en} }
+
+@misc{unity-catalog,
+  url={https://www.databricks.com/product/unity-catalog},
+  abstractNote={Databricks Unity Catalog}
+}
+
+@misc{duckdb-s3,
+  url={https://duckdb.org/docs/current/core_extensions/httpfs/s3api},
+  abstractNote={DuckDB S3 API Support}
 }

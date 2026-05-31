@@ -24,7 +24,7 @@
 #show raw.where(lang: "pintora"): it => pintorita.render(it.text)
 #show link: underline
 #show: ieee.with(
-  title: [Fine-grained role-based access control by encryption],
+  title: [Fine-grained Role-Based Access Control in Data Lakes by Encryption],
   authors: (
     (
       name: "Andreas Severin Hauch Trøstrup",
@@ -44,19 +44,20 @@
   abstract: [
     // Motivation
     True separation of compute and data in data lakes comes at the cost of coarse access control.
-    Authorization services like Lakekeeper introduce access control for any query engine, but limit authorization to the file level. 
+    Authorization services, like Lakekeeper, introduce access control for any query engine, but limit authorization to the file level. 
     On the other hand, "fully managed all-in-one cloud platforms" like Snowflake offer fine-grained access control only within their own platform -- defeating the purpose of separating compute and data.
 
     // Results
-    We propose Object Store Wrapper Service (OSWS), a system that enforces column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are already S3 compatible -- with no modifications.
+    We propose Object Store Wrapper Service (OSWS), a system that enforces column-level role-based access control at the Object Store layer using Parquet Modular Encryption with envelope encryption, and still supports query engines that are already S3-compatible, with no modifications.
 
     // Contributions
-    Our evaluation, based on e2e test benchmarks, shows that OSWS adds negligible overhead for reading small Parquet files.
-    Benchmarks on a warm DEK cache show a _p95_ GET latency of $30$ms for a $5$MB Parquet file, but with larger Parquet files it becomes unusably slow.
+    Our evaluation, based on end-to-end latency benchmarks, shows that OSWS adds low absolute overhead for reading small Parquet files.
+    With a warm DEK cache, a _0.5_ MB Parquet file reaches a _p95_ latency of _37_ milliseconds, remaining practically fast, though still adding a _\~2.5_#sym.times overhead compared to direct S3 access.
+    However, for larger files, the current implementation becomes impractically slow.
     We reflect on how these issues could be addressed through different fundamental design changes in OSWS.
 
     // Implications
-    OSWS demonstrates that encryption-based fine-grained access control at the Object Store layer is a viable approach for data lakes, though limitations exist for query engines that cache Parquet metadata; however, those issues are addressable.
+    OSWS demonstrates that encryption-based fine-grained access control at the Object Store layer is a feasible approach for data lakes, though query engines that cache Parquet metadata pose limitations; however, those issues are addressable.
   ],
   // bibliography: bibliography("refs.bib"),
   figure-supplement: "Figure"
@@ -65,12 +66,11 @@
 #place(
   top + right,
   float: false,
-  dx: 3.5em,
-  dy: -2em,
-  text(9pt, style: "normal", weight: "medium")[STADS: KISPECI1SE]
+  dx: 4.5em,
+  dy: -2.5em,
+  text(11pt, style: "normal", weight: "medium")[STADS: KISPECI1SE]
 )
 
-#include "todo.typ"
 #include "1-intro.typ"
 #include "2-related-work.typ"
 #include "3-background.typ"
@@ -80,10 +80,10 @@
 #include "7-discussion.typ"
 #include "8-conclusion.typ"
 
-#show-footer.update(false)
-#context body-end.update(counter(page).get().first())
-
 #bibliography("refs.bib", style: "ieee")
 
+#context body-end.update(counter(page).get().first())
 #pagebreak()
+#show-footer.update(false)
+
 #include "9-appendix.typ"

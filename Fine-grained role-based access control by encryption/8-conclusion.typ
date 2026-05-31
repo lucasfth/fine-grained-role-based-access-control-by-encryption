@@ -1,24 +1,31 @@
-#import "cmds.typ": delete, todo, speculation
+#import "cmds.typ": delete, todo, speculation, new
 
 = Conclusion
 
 
-The PoC OSWS demonstrates the possibility of adding fine-grained role-based access control in data lakes by using encryption with native Parquet files, and thus enforcing it within the Object Store.
+The proof-of-concept version OSWS demonstrates the feasibility of adding fine-grained role-based access control in data lakes by encryption with native Parquet files, and thus enforcing it within the Object Store.
 Query engines that do not cache Parquet sizing metadata, such as DuckDB, can use OSWS without modifications by pointing their S3 URL to OSWS.
 
-This thesis had the following five objectives:
+This thesis had the following six objectives:
 
 #import "1-intro.typ": objectives
 #objectives
 
-Only four of the objectives were partially completed, as _3_ were not possible due to limitations of whitelisting.
-Fine-grained RBAC with column-level encryption was achieved in OSWS, proved by an e2e test, and addressing objectives _1_ and _2_.
-3rd party query engines not using cached metadata, such as DuckDB, could have OSWS dropped in as an S3 replacement without modifying them, partially solving objective _4_.
+Four of the six objectives were partially completed.
 
-The whole system was benchmarked, and showed that a DEK cache is non-negotiable, even with small Parquet files; the latency improved dramatically when using it.
-This solved objective _5_.
-But generally, it showed that OSWS in its current state is not production-ready, due to the design choices made.
+The OSWS PoC was successfully created and supports column-level RBAC using encryption.
 
-The results of the current state of OSWS are better seen as design proof that such a system could work.
-The issues identified were a lot of sequential work, modified metadata, and unsupported range requests internally.
-But these issues have been reflected upon and potential solutions proposed within~@sec:discussion, thus addressing objective _6_.
+Making it compatible with "fully managed all-in-one cloud platforms" was not possible to test, due to whitelisting limitations.
+
+External query engines were able to be connected to the system without needing any modifications -- though only for the ones that do not cache metadata on write.
+Meaning that objective _4_ was only partially completed.
+DuckDB could use OSWS as a drop-in replacement for S3 without needing any modifications, but DuckLake was not able to use OSWS.
+
+OSWS was benchmarked, and showed that a DEK cache is a non-negotiable, even with small Parquet files; going from no DEK cache entirely to a cold cache resulted in a $\~5.6$#sym.times improvement from $20.1$ seconds on average to $3.6$ seconds on average. Going from a cold to a warm DEK cache further improved latency by about $\~120$#sym.times down to $30$ milliseconds. While still a $\~2.5$#sym.times overhead, it remains practically usable.
+
+However, generally the benchmarks showed that OSWS in its current state is not production-ready, due to design choices; $1$GB Parquet files made the system time out and for $125$MB Parquet files, retrieving them in their best case would take $1.6$ seconds.
+
+The results of the current state of OSWS are better seen as a design proof that the suggested system is possible.
+A lot of design decisions have to be carried over into a potential future version of it, including: DEK caching, envelope encryption, KV provider agnostic, and OIDC provider agnostic.
+While the design decisions of using PME, Parquet Sharp, and the way metadata is handled have to be changed, to ensure a system supporting more asynchronous work and internally supported range requests.
+These ideas have been reflected upon, and a more detailed solution is proposed within~@sec:discussion.

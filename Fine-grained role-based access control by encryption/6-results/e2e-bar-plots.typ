@@ -48,7 +48,8 @@
     title: [GET warm],
     xaxis: (ticks: ((1, [tiny]), (2, [small]), (3, [medium]), (4, [large]), (5, [x-large])), subticks: none),
     ylabel: [Latency (ms, log scale)],
-    yaxis: (scale: "log"),
+    //yaxis: (ticks: ((10, [10]),(25, [25]),(100, [100]), (1000, [1000]), (10000, [10000]), (100000, [100000]))), consider
+    yscale: "log",
     legend: (position: left + top),
     ylim: (MINY, MAXY),
     lq.bar(

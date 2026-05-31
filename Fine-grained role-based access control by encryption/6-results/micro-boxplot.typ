@@ -11,9 +11,15 @@
   lq.diagram(
     width: 100%, height: 7.5cm,
     xlabel: "Corpus size", ylabel: "Duration (s, log scale)",
-    xaxis: (ticks: ((1, [tiny]), (2, [small]), (3, [medium]), (4, [large]), (5, [xlarge]))),
+    xaxis: (ticks: ((1, [tiny]), (2, [small]), (3, [medium]), (4, [large]), (5, [x-large]))),
     ylim: (0.01, 18000/decryptionMsDivisor),
     yscale: "log",
+    yaxis: (ticks: (
+      (0.01, [0.01]),
+      (0.1,  [0.1]),
+      (1,    [1]),
+      (10,   [10]),
+    )),
 
   lq.boxplot(
     (median: 13.370/decryptionMsDivisor, q1: 12.770/decryptionMsDivisor, q3: 14.180/decryptionMsDivisor,

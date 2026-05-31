@@ -3,15 +3,9 @@
 
 #heading(numbering: none, level: 1)[Todo List]
 
-- [x] In *methodology*, add info about setup for testing DuckLake and what the issues were
-- [ ] System Design has to be refactored to not mention code files
-- [x] In *Discussion*, we have to add more info about why Parquet Sharp is not the way forward, as it does most work sequentially, and our other idea would allow for pre-fetching the keys and doing work asynchronously
-- [x] Why is footer encryption not enabled.
-- [x] Fix the not-defined times for how slow it is
-- [x] Lucas uses p99 for micro stuff. Use p95 instead to match e2e
-- [x] LRU has to be mentioned in system design
-- [?] Seems like there is a lot of repetition in the beginning of @sec:discussion
-- [x] Have to mention AES-CTR in the discussion as it is currently only referred to in the conclusion.
-- [ ] Minor: Fix page numbering in appendix (prolly shouldnt include)
-- [ ] Minor: Course code and shit on front page? I have shitted somsing
-- [ ] Consistency: "Object Store" or "object store"?
+- [L] Se på ref af architecture overview og table 1. Se om begge skal være der. Muligvis kan tabel nakkes.
+- [x] Consistency: italics eller citations i results ift. konfigurationer og filstørrelser
+- [x] Consistency: "Object Store"
+- [x] Consistency: "AES-CTR" "AES-GCM" med bindestreg tak -atro
+- [ ] Consistency: Some\~name\~et.\~al.\~\[12\] UDEN årstal -atro
+- [ ] Minor: Before handing in, consider checking all citations if they actually cite the correct thing.

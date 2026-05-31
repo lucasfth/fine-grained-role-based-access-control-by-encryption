@@ -20,12 +20,12 @@ sequenceDiagram
 
   Gateway->>Solver: Encrypt file for role
 
-  Solver->>KV: Create file KEK
+  Solver->>KV: Request new file KEK
   KV-->>Solver: KEK ID
 
   Solver->>Solver: Generate DEKs
 
-  Solver->>KV: Wrap DEKs
+  Solver->>KV: Wrap DEKs using KEK
 
   KV-->>Solver: Wrapped DEKs
 
