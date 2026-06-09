@@ -13,3 +13,9 @@ It is not as uncommon as we hoped that datasets are more than 50 columns wide. I
 https://github.com/cwida/public_bi_benchmark/tree/master/benchmark/USCensus/tables
 https://data.transportation.gov/Public-Transit/Monthly-Modal-Time-Series/5ti2-5uiv/about_data
 Perhaps we should be ready to discuss what the results would look like on wider datasets or run new benchmarks
+
+= Lucas
+
+== (2026/06/09) Table 1
+
+Is missing the `X-Large` file
