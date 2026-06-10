@@ -45,7 +45,7 @@
   ]
 ]
 
-#slide[
+#slide[ // TIME  20sec with frontpage
   = Agenda
   #v(mainWidth)
   - Introduction #p(3)
@@ -65,10 +65,10 @@
 
 // INTRODUCTION (LUCAS)
 
-#slide[
+#slide[ // TIME 1:00
   = Introduction
   #v(mainWidth)
-  - Compute and storage are separate in data lakes.
+  - In data lakes, compute and storage are separate.
   - Object Store only understands _files_ #sym.arrow.r.double coarse access control
   #v(normalWidth)
   #grid(
@@ -96,7 +96,7 @@
 
 // RELATED WORK (LUCAS)
 
-#slide[
+#slide[ // TIME 1:20
   = Related Work
   #v(mainWidth)
   - "Membrane: A Cryptographic Access Control System for Data Lakes"
@@ -104,7 +104,7 @@
     - Pull the whole file, but operate only on the view
     - Client is responsible for providing keys/views
   - "One Stone, Three Birds: Finer-Grained Encryption with Apache Parquet @ Large Scale" (Uber paper)
-    - Uses standard Parquet files and PME
+    - Uses standard Parquet files and Parquet Modular Encryption (PME)
     - Uses a standard KMS for cryptographic keys
     - Client uses Parquet library extension to read and write
 
@@ -116,7 +116,7 @@
 
 // SYSTEM DESIGN
 
-#slide[
+#slide[ // TIME 40 sec
   = System Design
   #v(mainWidth)
   - Wrap S3-compatible Object Store // er de to her ikke lidt det samme?
@@ -137,10 +137,13 @@
 
 // SYSTEM DESIGN: DESIGN CHOICES: Database Design + RBAC
 
-#slide[
+#slide[ // TIME 1 min
   = System Design: Design Choices - Database Design + RBAC
   #v(mainWidth)
-  #scale(80%)[#include "4-system-design/er-diagram.typ"]
+  #scale(100%)[#include "4-system-design/er-diagram.typ"]
+  #place(bottom + right, dy: -10em, dx: -1em,
+    text(fill: red, 30pt)[\*]
+  )
   // [*Users* #sym.arrow.r *Roles* #sym.arrow.r *Permissions* #sym.arrow.r *Columns*]
   - S3 API Credentials, Identity- & RBAC-metadata
   = System Design: RBAC Example
@@ -158,20 +161,30 @@
   #v(smallWidth)
 ]
 
-// SYSTEM DESIGN: DESIGN CHOICES: DEK Cache
+// consider
 
-#slide[
-  = System Design: Design Choices - DEK Cache
+#slide[ // TIME 20 sec
+  = System Design: Design Choices - Frontend
   #v(mainWidth)
-  - Store unwrapped DEKs in in-memory cache
-    - Results in less KV calls and less latency
-  - The unwrapped DEK gets stored with a unique identifier which also references the KEK identifier
-  - Uses predefined TTL
+  #grid(
+    columns: 2,
+    gutter: gutterWidth,
+    [
+  - Credentials and RBAC managed through frontend
+    - Interacts with API
+  - Users log in via OIDC
+  - Admins manage RBAC with SQL-like grammar
+    ],
+    [
+      #scale(100%)[#include "4-system-design/peggy.typ"]
+    ]
+  )
+
 ]
 
 // SYSTEM DESIGN: DESIGN CHOICES: Envelope Encryption
 
-#slide[
+#slide[ // TIME 40 sec
   = System Design: Design Choices - Envelope Encryption
   #v(mainWidth)
   - Original idea did not include envelope encryption
@@ -180,23 +193,43 @@
   - Allows for caching unwrapped DEKs
 ]
 
+// SYSTEM DESIGN: DESIGN CHOICES: DEK Cache
+
+#slide[ // TIME 30 sec
+  = System Design: Design Choices - Caching
+  #v(mainWidth)
+  *DEK Cache*
+  - Store unwrapped DEKs in in-memory cache
+    - Results in less KV calls and less latency
+  - The unwrapped DEK gets stored with a unique identifier which also references the KEK identifier
+  - Uses predefined TTL
+  #v(mainWidth)
+  *Encrypted File Cache*
+  - Cache full encrypted files to skip Object Store
+  - LRU Policy
+]
+
 // SYSTEM DESIGN: EXAMPLES: Encryption Flow
 
-#slide[
+#slide[ // TIME 1:08
   = System Design: Walkthrough Examples - Encryption Flow
-  #box(height: 90%)[#encryptionFlow]
+  #align(center)[
+    #box(height: 90%)[#encryptionFlow]
+  ]
 ]
 
 // SYSTEM DESING: Decryption Flow
 
-#slide[
+#slide[ // TIME 1 min
   = System Design: Walkthrough Examples - Decryption Flow
-  #box(height: 90%)[#decryptionFlow]
+  #align(center)[ 
+    #box(height: 90%)[#decryptionFlow]
+  ]
 ]
 
 // METHODOLOGY (LUCAS)
 
-#slide[
+#slide[ // TIME 1:50
   = Methodology
   #grid(
     columns: 2,
@@ -251,7 +284,7 @@
 
 // RESULTS: Micro-Benchmarks (LUCAS)
 
-#slide[
+#slide[ // TIME 1:30
   #import "6-results/micro-boxplot.typ": decryption, unwrap
   = Results: Micro-Benchmarks
   #v(-0.6*mainWidth)
@@ -276,7 +309,7 @@
 
 // RESULTS: E2E Latency (LUCAS)
 
-#slide[
+#slide[ // TIME 1.40
   #import "6-results/e2e-bar-plots.typ": getwarm, getcold
   = Results: E2E Latency
 
@@ -284,22 +317,24 @@
     columns: 2,
     gutter: gutterWidth,
     [
-      #set text(9pt)
-      #scale(108%)[#getwarm()]
-    ],
-    [
-      #set text(9pt)
-      #scale(108%)[#getcold()]
-    ],
-    [
-      - Tiny: overhead high, but absolute latency low (30 ms = practical)
-      - Large (~500 MB+): timeouts without DEK cache → needs redesign
+      - DEK cache is essential (500MB + timeout)
+      - GET warm:
+        - Tiny: $30$ ms
+        - Medium: $~1.6$ vs $~0.5$ seconds
     ],
     [
       #box(height: 40%, width: 100%)[
         #set text(8pt);
         #include "6-results/dekcachelatency.typ";
       ]
+    ],
+    [
+      #set text(9pt)
+      #scale(108%)[#getwarm()]
+    ],
+    [
+      #set text(9pt)
+      #scale(108%)[#getcold()]
     ]
   )
 ]
@@ -307,34 +342,31 @@
 // DISCUSSION: Limitations of the Current Design
 
 // #todo[flet impact on query engines ind]
-#slide[
+#slide[ // TIME 2:20
   = Discussion: Limitations of the Current Design
   #v(mainWidth)
-  *The parquet file is copied instead of modified*
-  - Parquet Sharp adds its own metadata
-    - Client: written file #sym.eq.not read file
+  *Core issue: The Parquet files are copied instead of modified*
+  - OSWS does full rewrite of the Parquet file to encrypt and decrypt
+  - But: different writers produce different files
+    - Different metadata, encoding
+    - For the client: written file #sym.eq.not read file
+  - Result: Inconsistencies in file size
+    - Breaks writers that store original size (like DuckLake)
   
-  - Modified metadata due to PME and Parquet Sharp
-  - Full rewrite of the Parquet File
-  - Parquet Sharp + PME results in full rewrite on decryption
-  Parquet Sharp + PME = full-file rewrite
   #v(smallWidth)
-  OSWS must COPY the *entire* Parquet file, then encrypt/decrypt every column sequentially.
-  #v(smallWidth)
-  - New file #sym.eq.not original (different writer)
-  - Metadata changes #sym.arrow.r file size changes
+  This must be done on *every fetch*
   - Range requests: must fetch the entire file first
   - Even unauthorized columns copied as dummy data
   #v(normalWidth)
-  PME trust model: *client* handles crypto, doesn't trust storage. \
-  OSWS needs: *server-side* crypto, client trusts the proxy.
+  Ultimately, *PME was not the right fit* \
+  - PME trust model: *client* handles crypto, doesn't trust storage. \
+  - OSWS: *server-side* crypto, client trusts the proxy.
   #v(smallWidth)
-  *PME was the wrong tool for this job.*
 ]
 
 // DISCUSSION: Proposed Redesign
 
-#slide[
+#slide[ // TIME 2 min
   = Discussion: Proposed Redesign
   #v(mainWidth)
   #grid(
@@ -342,53 +374,31 @@
     gutter: gutterWidth,
     [
       *1. Internal Metadata Store*
-      In PostgreSQL — not inside the Parquet file.
-      - Store wrapped DEKs, KEK ref, column offsets
-      - Enables range requests without full-file fetch
+      in the *database*
+      - No need to store inside Parquet for OSWS
+      - Store wrapped DEKs, KEK ref
     ],
     [
       *2. Custom AES-CTR Modifier*
-      Replace Parquet Sharp entirely.
+      - Replace Parquet Sharp entirely with modifier
       - Length-preserving → file size never changes
       - In-place decryption, no file copy
-      - Embarrassingly parallel row-groups
     ],
   )
   #v(normalWidth)
-  - Files unchanged → DuckLake/Snowflake support \
+  *Question: How to know what key covers a range?*
+  - Idea: Store metadata about what columns cover what range
+  - Lookup DEKs based on range
+  
+  *Key improvements:*
+  - Files unchanged → addresses DuckLake issue \
   - Range requests work (fetch + decrypt only needed) \
-  - Async key pre-fetch → KV off critical path \
-  - Production-viable performance
+  - Async DEK unwrap from pre-fetched wrapped keys \
 ]
-
-// // SLIDE 16 - What to Keep for V2 ═══════════════════
-
-// #slide[
-//   = Keep for V2
-//   #v(mainWidth)
-//   *Envelope encryption with DEK cache* \
-//   — mitigates KV latency, essential
-  
-//   *RBAC store in PostgreSQL* \
-//   — negligible overhead (2-10 ms)
-  
-//   *KV-provider agnostic* \
-//   — Azure → AWS → self-hosted = config change
-  
-//   *OIDC-provider agnostic* \
-//   — Pocket ID, Entra ID, any OpenID provider
-  
-//   *Role hierarchy via recursive SQL* \
-//   — simple, fast, correct
-//   #v(normalWidth)
-//   *Security issues to fix:*
-//   - S3 secrets stored in plaintext → encrypt at rest via KV
-//   - RBAC admin flag from OIDC claims → restrict claim sources
-// ]
 
 // CONCLUSSION (LUCAS)
 
-#slide[
+#slide[  // TIME 1:50
   = Conclusion
   #v(mainWidth)
   OSWS demonstrates feasibility of FGRBAC in data lakes by encryption
@@ -397,7 +407,7 @@
     columns: 2,
     gutter: gutterWidth,
     [
-      + ✅ Create a POC of OSWS using an underlying S3-compatible Object Store.
+      + ✅ Create a PoC of OSWS using an underlying S3-compatible Object Store.
       + ✅ Ensure OSWS enforces access control using RBAC and encryption.
       + ❌ Make it compatible with "fully managed all-in-one cloud platforms".
     ],
@@ -414,8 +424,8 @@
     ],
     [
       *Impractical in Current State*
-      - System timeout on $1$GB files
-      - $125$MB Parquet file retrieval took $1.6$ seconds in best case 
+      - $125$MB Parquet file retrieval took $1.6$ seconds in best case
+      - Larger files are even slower
     ]
   )
 ]
@@ -435,6 +445,35 @@
 #show-footer.update(false)
 
 #slide[
+  = Background
+  #block(height: 40em)[
+      #image("3-background/pem_plainfooter.png")
+  ]
+]
+
+#slide[
+  = System Design: API
+  #let textSize = 8.4pt
+  #let scaling = 100%
+  #grid(
+    columns: 3,
+    gutter: 0.4*gutterWidth,
+    [
+      #set text(textSize)
+      #scale(scaling)[#include "4-system-design/s3-compatible-endpoints.typ"]
+    ],
+    [
+      #set text(textSize)
+      #scale(scaling)[#include "4-system-design/application-endpoints.typ"]
+    ],
+    [
+      #set text(textSize)
+      #scale(scaling)[#include "4-system-design/administrative-endpoints.typ"]
+    ]
+  )
+]
+
+#slide[
   #import "6-results/micro-boxplot.typ": permissionhier, permissionser
   = Results: Micro-Benchmarks - Roles
   #grid(
@@ -449,6 +488,11 @@
       #scale(80%)[#permissionser()]
     ]
   )
+]
+
+#slide[
+  = Discussion: DuckLake error case
+  #box(height: 90%)[#include "7-discussion/ducklake.typ"]
 ]
 
 // Let this slide the bottom one as it overflows into new slides
